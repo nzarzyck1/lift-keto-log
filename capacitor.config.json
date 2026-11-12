@@ -1,0 +1,7 @@
+{
+  "appId": "com.nathan.liftketo",
+  "appName": "Lift + Keto",
+  "webDir": "web",
+  "android": { "backgroundColor": "#061114" },
+  "plugins": { "SystemBars": { "style": "DARK", "insetsHandling": "css" } }
+}

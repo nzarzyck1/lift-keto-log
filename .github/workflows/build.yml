@@ -1,0 +1,88 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Fast path: the app screens. The phone app downloads these on its next launch.
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Check the app and write version.json
+        run: npm run build
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp web/app.html web/version.json pages/install.html pages/icon.png _site/
+          sed -i "s#__REPO__#${GITHUB_REPOSITORY}#g" _site/install.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  # Slow path: the Android install file. Only published when shell-version.txt goes up.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is this a new app install?
+        id: ver
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          v=$(cat shell-version.txt | tr -d '[:space:]')
+          echo "v=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "v$v" >/dev/null 2>&1; then echo "new=false" >> "$GITHUB_OUTPUT"; else echo "new=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+      - name: Build the APK
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          npm ci
+          UPDATE_BASE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/" npm run build
+          npx cap sync android
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export KEYSTORE_FILE="$RUNNER_TEMP/release.keystore"
+          else
+            echo "::error::The KEYSTORE_B64 secret is missing, so the APK can't be signed." && exit 1
+          fi
+          cd android && ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/lift-keto-log.apk"
+      - uses: actions/upload-artifact@v4
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+        with: { name: lift-keto-log-apk, path: lift-keto-log.apk }
+      - name: Publish the release
+        if: steps.ver.outputs.new == 'true'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release create "v${{ steps.ver.outputs.v }}" lift-keto-log.apk \
+            --title "Lift + Keto app install ${{ steps.ver.outputs.v }}" \
+            --notes "Install this on your phone. Day-to-day changes arrive inside the app without reinstalling." --latest

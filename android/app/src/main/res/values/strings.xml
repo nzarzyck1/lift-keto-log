@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lift + Keto</string>
+    <string name="title_activity_main">Lift + Keto</string>
+    <string name="package_name">com.nathan.liftketo</string>
+    <string name="custom_url_scheme">com.nathan.liftketo</string>
+</resources>

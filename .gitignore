@@ -1,0 +1,6 @@
+node_modules/
+web/native.js
+web/version.json
+*.keystore
+*.jks
+_site/
