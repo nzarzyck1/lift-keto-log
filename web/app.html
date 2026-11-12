@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="5">
+<meta name="app-version" content="6">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -603,23 +603,28 @@ function stepSync(){
   if(stepBusy) return stepBusy;
   stepBusy=(async()=>{
     const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-13);
-    const q=o=>H.queryAggregated({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps",bucket:"day",...(o?{dataOrigins:o}:{})});
-    const sum=x=>((x&&x.aggregatedData)||[]).reduce((a,v)=>a+(+v.value||0),0);
-    let src="Samsung Health", r=null;
-    try{ r=await q([SHEALTH]); }catch(e){}
-    if(!sum(r)){ r=await q(null); src="all apps"; }
-    let n=0;
-    for(const v of (r&&r.aggregatedData)||[]){
-      const raw=String(v.startDate||""); const date=/^\d{4}-\d\d-\d\d/.test(raw)?raw.slice(0,10):today();
-      const st=Math.round(+v.value||0);
-      if(st>0&&date<=today()&&(+day(date).steps||0)!==st){ saveSteps(date,st); n++; }
+    // Samsung Health's own records add up to the number it shows. Health Connect's
+    // de-duplicated total can prefer the phone's step counter and drop watch steps.
+    const rec=await H.queryRecords({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps"});
+    const recs=(rec&&rec.records)||[];
+    const perDay={}, by={}, t=today();
+    const isSH=x=>x.sourceBundleId===SHEALTH;
+    for(const x of recs){
+      const d=ymd(new Date(x.startDate)), v=+x.value||0;
+      if(isSH(x)) perDay[d]=(perDay[d]||0)+v;
+      if(d===t){ const k=isSH(x)?"Samsung Health":(x.sourceName||x.sourceBundleId||"Other"); by[k]=(by[k]||0)+v; }
     }
-    const by={};
-    try{
-      const t0=new Date(); t0.setHours(0,0,0,0);
-      const rec=await H.queryRecords({startDate:t0.toISOString(),endDate:end.toISOString(),dataType:"steps"});
-      for(const x of (rec&&rec.records)||[]){ const k=x.sourceBundleId===SHEALTH?"Samsung Health":(x.sourceName||x.sourceBundleId||"Other"); by[k]=(by[k]||0)+(+x.value||0); }
-    }catch(e){}
+    let src="Samsung Health", days=perDay;
+    if(!Object.keys(perDay).length){
+      src="all apps"; days={};
+      const r=await H.queryAggregated({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps",bucket:"day"});
+      for(const v of (r&&r.aggregatedData)||[]){ const raw=String(v.startDate||""); if(/^\d{4}-\d\d-\d\d/.test(raw)) days[raw.slice(0,10)]=+v.value||0; }
+    }
+    let n=0;
+    for(const [date,val] of Object.entries(days)){
+      const st=Math.round(val);
+      if(st>0&&date<=t&&(+day(date).steps||0)!==st){ saveSteps(date,st); n++; }
+    }
     stepInfo={src,by,at:Date.now()}; lsSet("lk-steps-info",stepInfo);
     return n;
   })().catch(()=>0).finally(()=>{ stepBusy=null; });
