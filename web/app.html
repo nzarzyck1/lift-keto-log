@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="4">
+<meta name="app-version" content="5">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -590,6 +590,49 @@ async function connect(){
   }catch(e){ setSync("off"); }
 }
 let lastSyncErr=null;
+
+/* ---------- Steps from Health Connect (Android app) ---------- */
+// Samsung Health writes its own merged phone + watch count into Health Connect.
+// Use that number, so the app matches Samsung Health. Fall back to every app's
+// total only if Samsung Health hasn't written anything.
+const SHEALTH="com.sec.android.app.shealth";
+let stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
+const hcPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HealthPlugin;
+function stepSync(){
+  const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
+  if(stepBusy) return stepBusy;
+  stepBusy=(async()=>{
+    const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-13);
+    const q=o=>H.queryAggregated({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps",bucket:"day",...(o?{dataOrigins:o}:{})});
+    const sum=x=>((x&&x.aggregatedData)||[]).reduce((a,v)=>a+(+v.value||0),0);
+    let src="Samsung Health", r=null;
+    try{ r=await q([SHEALTH]); }catch(e){}
+    if(!sum(r)){ r=await q(null); src="all apps"; }
+    let n=0;
+    for(const v of (r&&r.aggregatedData)||[]){
+      const raw=String(v.startDate||""); const date=/^\d{4}-\d\d-\d\d/.test(raw)?raw.slice(0,10):today();
+      const st=Math.round(+v.value||0);
+      if(st>0&&date<=today()&&(+day(date).steps||0)!==st){ saveSteps(date,st); n++; }
+    }
+    const by={};
+    try{
+      const t0=new Date(); t0.setHours(0,0,0,0);
+      const rec=await H.queryRecords({startDate:t0.toISOString(),endDate:end.toISOString(),dataType:"steps"});
+      for(const x of (rec&&rec.records)||[]){ const k=x.sourceBundleId===SHEALTH?"Samsung Health":(x.sourceName||x.sourceBundleId||"Other"); by[k]=(by[k]||0)+(+x.value||0); }
+    }catch(e){}
+    stepInfo={src,by,at:Date.now()}; lsSet("lk-steps-info",stepInfo);
+    return n;
+  })().catch(()=>0).finally(()=>{ stepBusy=null; });
+  return stepBusy;
+}
+function stepsPanel(){
+  if(!hcPlugin()||!lsGet("lk-hc-on",false)||!stepInfo) return "";
+  const parts=Object.entries(stepInfo.by||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${fmtK(v)}`);
+  return `<div class="panel"><div class="eyebrow">Where steps come from</div>
+    <div class="small">Using <b>${esc(stepInfo.src)}</b>, so the app matches what Samsung Health shows.${parts.length?` Today in Health Connect: ${parts.join(" · ")}.`:""}</div>
+    <div class="small muted">Samsung Health sends steps to Health Connect every so often, so today's count can lag a bit. Opening Samsung Health makes it send right away.</div></div>`;
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),1500); });
 
 /* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */
 const CLOUD={url:"https://glgytlzwmgemouzqasrh.supabase.co",key:"sb_publishable_p1viGgFCqRLwEAhjUG65jQ_1oaNkQmJ"}; // project URL and publishable key (both public by design)
@@ -1370,7 +1413,7 @@ function renderLog(){
 /* ---------- Render: Settings ---------- */
 function renderMore(){
   const el=$("#v-more"); const s=settings();
-  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}
+  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}${stepsPanel()}
   <div class="panel">
     <div class="eyebrow">Daily targets</div>
     <div class="grid2">
@@ -1703,9 +1746,10 @@ function render(){
 document.addEventListener("focusout",()=>{ if(deferred) setTimeout(()=>{ if(deferred&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)&&$("#v-"+ui.tab).contains(document.activeElement))) render(); },0); });
 // keep "today" fresh if the app stays open past midnight
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(foodDate>today()) foodDate=today(); render(); }});
-window.APP={saveSteps,day,put,render,toast,today,addDays,settings,view};
+window.APP={saveSteps:()=>{ stepSync().then(n=>{ if(n) render(); }); },stepSync,day,put,render,toast,today,addDays,settings,view};
 setTab(draft?"train":"status");
 connect();
+setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),2500);
 })();
 </script>
 

@@ -140,6 +140,7 @@ const hc = {
   },
   async sync() {
     if (!ls.get(K.hc, false) || !window.APP) return 0;
+    if (APP.stepSync) { const n = await within(APP.stepSync(), 60000, "hc_timeout"); ls.set(K.hcLast, Date.now()); return n; }
     const end = new Date(); const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 13);
     const r = await within(Health.queryAggregated({ startDate: start.toISOString(), endDate: end.toISOString(), dataType: "steps", bucket: "day" }), 30000, "hc_timeout");
     let n = 0;
