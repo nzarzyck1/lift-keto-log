@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="2">
+<meta name="app-version" content="3">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -555,6 +555,7 @@ async function flushOnce(){
     try{
       if(data===null) await col.doc(id).delete(); else await col.doc(id).set(data);
       if(data===null) delete docs[id]; else docs[id]=data;
+      cloudMark(id);
       if(pending[id]===data){ delete pending[id]; }
       lsSet(PENDING,pending); lsSet(CACHE,docs);
     }catch(e){ lastSyncErr=(e&&e.code)||"error"; setSync("off","Couldn't save to your account ("+lastSyncErr+"). Kept on this phone."); return; }
@@ -581,7 +582,7 @@ async function connect(){
       const fresh={}; snap.docs.forEach(d=>{ const v=d.data(); if(v) fresh[d.id]=v; });
       docs=fresh; lsSet(CACHE,docs); setSync("on"); render();
     }, err=>{ setSync("off","Sync paused: "+(err&&err.code)); });
-    setSync("on"); flush();
+    setSync("on"); flush().then(()=>cloudSync(false));
     // keep retrying anything still waiting: every 20 s, and whenever the app comes back to the screen
     setInterval(()=>{ if(Object.keys(pending).length) flush(); },20000);
     document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&Object.keys(pending).length) flush(); });
@@ -589,6 +590,142 @@ async function connect(){
   }catch(e){ setSync("off"); }
 }
 let lastSyncErr=null;
+
+/* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */
+const CLOUD={url:"",key:""}; // project URL and publishable key (both public by design)
+const CS="lk-cloud-session", CM="lk-cloud-meta", CQ="lk-cloud-queue", CC="lk-cloud-cursor";
+let cloudSess=lsGet(CS,null), cloudMeta=lsGet(CM,{}), cloudQ=lsGet(CQ,{}), cloudCursor=lsGet(CC,"");
+let cloudMsg="", cloudBusy=null, cloudTimer=null, cloudLast=0;
+const cloudReady=()=>!!(window.NATIVE&&CLOUD.url&&CLOUD.key);
+const cloudOn=()=>cloudReady()&&!!cloudSess;
+function cloudSave(){ lsSet(CS,cloudSess); lsSet(CM,cloudMeta); lsSet(CQ,cloudQ); lsSet(CC,cloudCursor); }
+async function cfetch(path,{method="GET",body,token,prefer}={}){
+  const h={apikey:CLOUD.key,"Content-Type":"application/json",Authorization:"Bearer "+(token||CLOUD.key)};
+  if(prefer) h.Prefer=prefer;
+  let r; try{ r=await fetch(CLOUD.url.replace(/\/$/,"")+path,{method,headers:h,body:body?JSON.stringify(body):undefined}); }
+  catch(e){ throw {code:"offline"}; }
+  const txt=await r.text(); let j=null; try{ j=txt?JSON.parse(txt):null; }catch(e){}
+  if(!r.ok) throw {code:"http",status:r.status,msg:(j&&(j.msg||j.message||j.error_description||j.error))||txt};
+  return j;
+}
+function keepSession(j){ cloudSess={access:j.access_token,refresh:j.refresh_token,exp:Date.now()+((j.expires_in||3600)*1000),uid:j.user&&j.user.id,email:j.user&&j.user.email}; cloudSave(); }
+async function cloudToken(){
+  if(!cloudSess) throw {code:"signed_out"};
+  if(cloudSess.exp-60000>Date.now()) return cloudSess.access;
+  try{ keepSession(await cfetch("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:cloudSess.refresh}})); return cloudSess.access; }
+  catch(e){ if(e.code==="http"&&e.status>=400&&e.status<500){ cloudSignOut(); cloudMsg="You were signed out. Sign in again to keep syncing."; } throw e; }
+}
+async function cloudSignIn(email,password,isNew){
+  if(isNew){
+    const j=await cfetch("/auth/v1/signup",{method:"POST",body:{email,password}});
+    if(!j||!j.access_token) return "confirm";
+    keepSession(j);
+  } else keepSession(await cfetch("/auth/v1/token?grant_type=password",{method:"POST",body:{email,password}}));
+  cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave();
+  await cloudSync(true);
+  return "ok";
+}
+function cloudSignOut(){ cloudSess=null; cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave(); }
+function cloudMark(id){
+  if(!cloudOn()) return;
+  const ts=Date.now(); cloudMeta[id]=ts; cloudQ[id]=ts; lsSet(CM,cloudMeta); lsSet(CQ,cloudQ);
+  clearTimeout(cloudTimer); cloudTimer=setTimeout(()=>cloudSync(false),2500);
+}
+async function cloudPull(token){
+  let changed=0;
+  for(let page=0;page<20;page++){
+    const q="/rest/v1/docs?select=id,data,ts,updated_at&order=updated_at.asc&limit=500"+(cloudCursor?"&updated_at=gt."+encodeURIComponent(cloudCursor):"");
+    const rows=await cfetch(q,{token}); if(!rows||!rows.length) break;
+    for(const r of rows){
+      cloudCursor=r.updated_at;
+      if(cloudQ[r.id]&&cloudQ[r.id]>=r.ts) continue;          // our unsent change is newer
+      if((cloudMeta[r.id]||0)>=r.ts) continue;                 // already have it
+      cloudMeta[r.id]=r.ts; delete cloudQ[r.id];
+      if(r.data===null){ delete docs[r.id]; delete pending[r.id]; try{ if(col) await col.doc(r.id).delete(); }catch(e){} }
+      else { docs[r.id]=r.data; delete pending[r.id]; try{ if(col) await col.doc(r.id).set(r.data); }catch(e){} }
+      changed++;
+    }
+    if(rows.length<500) break;
+  }
+  if(changed){ lsSet(CACHE,docs); lsSet(PENDING,pending); }
+  return changed;
+}
+async function cloudPush(token){
+  const all=view();
+  // anything on this phone the account has never seen goes up too
+  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-)/.test(id)||id==="settings")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
+  const ids=Object.keys(cloudQ); if(!ids.length) return 0;
+  const sent={...cloudQ};
+  for(let i=0;i<ids.length;i+=200){
+    const rows=ids.slice(i,i+200).map(id=>({user_id:cloudSess.uid,id,data:all[id]??null,ts:sent[id]}));
+    await cfetch("/rest/v1/docs?on_conflict=user_id,id",{method:"POST",token,body:rows,prefer:"resolution=merge-duplicates,return=minimal"});
+  }
+  for(const id of ids){ if(cloudQ[id]===sent[id]) delete cloudQ[id]; }
+  return ids.length;
+}
+function cloudSync(manual){
+  if(!cloudOn()) return Promise.resolve();
+  if(cloudBusy) return cloudBusy;
+  cloudBusy=(async()=>{
+    try{
+      const token=await cloudToken();
+      const got=await cloudPull(token);
+      await cloudPush(token);
+      cloudSave(); cloudLast=Date.now(); cloudMsg="";
+      if(manual) toast(got?`Synced. ${got} update${got>1?"s":""} came in.`:"Synced");
+      if(got||manual) render();
+    }catch(e){
+      cloudSave();
+      cloudMsg=e.code==="offline"?"Offline. Changes will sync when you're back online.":e.code==="signed_out"?cloudMsg:"Sync hit a problem"+(e.msg?": "+e.msg:"")+". It will retry.";
+      if(manual) toast(e.code==="offline"?"You're offline":"Couldn't sync right now");
+    }finally{ cloudBusy=null; }
+  })();
+  return cloudBusy;
+}
+function cloudPanel(){
+  if(!cloudReady()) return "";
+  if(cloudSess) return `<div class="panel">
+    <div class="eyebrow">Account</div>
+    <div class="small">Signed in as <b>${esc(cloudSess.email||"you")}</b>. Your log backs up and syncs to any phone where you sign in.${cloudLast?` Last sync ${new Date(cloudLast).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}.`:""}</div>
+    ${cloudMsg?`<div class="small" style="color:var(--warn)">${esc(cloudMsg)}</div>`:""}
+    <div class="row" style="gap:8px"><button id="c-sync">Sync now</button><button id="c-out">Sign out</button></div>
+  </div>`;
+  return `<div class="panel">
+    <div class="eyebrow">Account</div>
+    <div class="small">Sign in to back up your log and sync it to any phone. Your data stays on this phone too.</div>
+    ${cloudMsg?`<div class="small" style="color:var(--warn)">${esc(cloudMsg)}</div>`:""}
+    <div class="grid2">
+      <label class="f">Email<input id="c-email" type="email" autocomplete="email" inputmode="email"></label>
+      <label class="f">Password<input id="c-pass" type="password" autocomplete="current-password" placeholder="8+ characters"></label>
+    </div>
+    <div class="row" style="gap:8px"><button class="primary" id="c-in">Sign in</button><button id="c-new">Create account</button></div>
+  </div>`;
+}
+function bindCloud(el){
+  const on=(id,fn)=>{ const b=$(id,el); if(b) b.onclick=fn; };
+  const go=async(isNew,btn)=>{
+    const email=$("#c-email",el).value.trim(), pw=$("#c-pass",el).value;
+    if(!/^\S+@\S+\.\S+$/.test(email)){ toast("Enter your email"); return; }
+    if(pw.length<8){ toast("Use a password of at least 8 characters"); return; }
+    btn.disabled=true; btn.textContent=isNew?"Creating…":"Signing in…";
+    try{
+      const r=await cloudSignIn(email,pw,isNew);
+      cloudMsg=r==="confirm"?"Check your email and tap the confirm link, then come back and tap Sign in.":"";
+      if(r==="ok") toast("Signed in. Your log is backed up.");
+    }catch(e){
+      const m=String(e.msg||"").toLowerCase();
+      cloudMsg=e.code==="offline"?"You're offline. Try again when you're connected.":m.includes("invalid")?"That email and password didn't match.":m.includes("confirm")?"Confirm your email first (check your inbox), then sign in.":m.includes("registered")||m.includes("exists")?"That email already has an account. Tap Sign in.":"Couldn't sign in"+(e.msg?": "+e.msg:"");
+    }
+    render();
+  };
+  on("#c-in",e=>go(false,e.currentTarget)); on("#c-new",e=>go(true,e.currentTarget));
+  on("#c-sync",()=>cloudSync(true)); on("#c-out",()=>{ cloudSignOut(); toast("Signed out. Your log stays on this phone."); render(); });
+}
+if(cloudReady()){
+  setInterval(()=>{ if(cloudOn()&&Object.keys(cloudQ).length) cloudSync(false); },60000);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) cloudSync(false); });
+  window.addEventListener("online",()=>cloudSync(false));
+}
 
 /* ---------- Program logic ---------- */
 function weekNo(date){ const s=settings(); const d=(parseYmd(date)-parseYmd(s.startDate))/864e5; return Math.max(1,Math.floor(d/7)+1); }
@@ -1233,7 +1370,7 @@ function renderLog(){
 /* ---------- Render: Settings ---------- */
 function renderMore(){
   const el=$("#v-more"); const s=settings();
-  el.innerHTML=`${window.NATIVE?NATIVE.setupHtml():""}
+  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}
   <div class="panel">
     <div class="eyebrow">Daily targets</div>
     <div class="grid2">
@@ -1290,6 +1427,7 @@ function renderMore(){
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
   if(window.NATIVE) NATIVE.bindSetup(el);
+  bindCloud(el);
 }
 
 /* ---------- Status dashboard ---------- */
