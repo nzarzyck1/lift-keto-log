@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="3">
+<meta name="app-version" content="4">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -592,7 +592,7 @@ async function connect(){
 let lastSyncErr=null;
 
 /* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */
-const CLOUD={url:"",key:""}; // project URL and publishable key (both public by design)
+const CLOUD={url:"https://glgytlzwmgemouzqasrh.supabase.co",key:"sb_publishable_p1viGgFCqRLwEAhjUG65jQ_1oaNkQmJ"}; // project URL and publishable key (both public by design)
 const CS="lk-cloud-session", CM="lk-cloud-meta", CQ="lk-cloud-queue", CC="lk-cloud-cursor";
 let cloudSess=lsGet(CS,null), cloudMeta=lsGet(CM,{}), cloudQ=lsGet(CQ,{}), cloudCursor=lsGet(CC,"");
 let cloudMsg="", cloudBusy=null, cloudTimer=null, cloudLast=0;
@@ -600,7 +600,7 @@ const cloudReady=()=>!!(window.NATIVE&&CLOUD.url&&CLOUD.key);
 const cloudOn=()=>cloudReady()&&!!cloudSess;
 function cloudSave(){ lsSet(CS,cloudSess); lsSet(CM,cloudMeta); lsSet(CQ,cloudQ); lsSet(CC,cloudCursor); }
 async function cfetch(path,{method="GET",body,token,prefer}={}){
-  const h={apikey:CLOUD.key,"Content-Type":"application/json",Authorization:"Bearer "+(token||CLOUD.key)};
+  const h={apikey:CLOUD.key,"Content-Type":"application/json"}; if(token) h.Authorization="Bearer "+token;
   if(prefer) h.Prefer=prefer;
   let r; try{ r=await fetch(CLOUD.url.replace(/\/$/,"")+path,{method,headers:h,body:body?JSON.stringify(body):undefined}); }
   catch(e){ throw {code:"offline"}; }
