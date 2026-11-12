@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="17">
+<meta name="app-version" content="18">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1732,7 +1732,60 @@ let lastSyncErr=null;
 const SHEALTH="com.sec.android.app.shealth";
 let hcReady=false, stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
 const hcPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HealthPlugin;
+/* Water: Samsung Health (watch) writes hydration into Health Connect; read it with the app's own Hydration plugin (shell v3+). */
+const waterPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("Hydration")?Capacitor.Plugins.Hydration:null;
+let waterBusy=null, waterInfo=lsGet("lk-water-info",null);
+const OZ_PER_L=33.814;
+function waterManual(dd){ return dd.waterHC==null?(+dd.water||0):(+dd.waterAdj||0); }
+function setWater(date,patch){ const dd=day(date); put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],...patch}); }
+function addWater(date,delta){ const dd=day(date); const man=Math.max(0,waterManual(dd)+delta);
+  if(dd.waterHC==null) setWater(date,{water:man}); else setWater(date,{water:Math.round((+dd.waterHC||0)+man),waterAdj:man}); }
+function waterSync(manual){
+  const W=waterPlugin(); if(!W||!lsGet("lk-water-on",false)) return Promise.resolve(0);
+  if(waterBusy) return waterBusy;
+  const last=(waterInfo&&waterInfo.at)||0;
+  if(!manual&&Date.now()-last<4*60000) return Promise.resolve(0);
+  waterBusy=(async()=>{
+    const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-(manual||!last?13:1));
+    const r=await W.readRecords({startDate:start.toISOString(),endDate:end.toISOString()});
+    const recs=(r&&r.records)||[], t=today();
+    const sh=recs.filter(x=>x.sourceBundleId===SHEALTH), use=sh.length?sh:recs;
+    const perDay={}; for(const x of use){ const d=ymd(new Date(x.startDate)); perDay[d]=(perDay[d]||0)+(+x.liters||0)*OZ_PER_L; }
+    let n=0;
+    for(const [date,oz] of Object.entries(perDay)){
+      if(date>t) continue; const hc=Math.round(oz); const dd=day(date);
+      // the first time a day gets watch data, the watch is the source; later taps in the app add on top
+      const man=dd.waterHC==null?0:(+dd.waterAdj||0);
+      if(dd.waterHC!==hc||Math.round(hc+man)!==(+dd.water||0)){ setWater(date,{waterHC:hc,waterAdj:man,water:Math.round(hc+man)}); n++; }
+    }
+    waterInfo={at:Date.now(),src:sh.length?"Samsung Health":recs.length?"Health Connect":"none",err:""}; lsSet("lk-water-info",waterInfo);
+    return n;
+  })().catch(e=>{ waterInfo={...(waterInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-water-info",waterInfo); return 0; })
+    .finally(()=>{ waterBusy=null; });
+  return waterBusy;
+}
+function waterPanel(){
+  if(!waterPlugin()) return "";
+  const on=lsGet("lk-water-on",false);
+  return `<div class="panel"><div class="eyebrow">Samsung Health water</div>
+    <div class="small">${on?`Connected. Water you log on your watch fills in on its own${waterInfo&&waterInfo.at?` (last read ${new Date(waterInfo.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`:""}.`:"Connect once and the water you log on your watch shows up on the Food tab by itself."}</div>
+    ${waterInfo&&waterInfo.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(waterInfo.err)}</div>`:""}
+    <div class="row" style="gap:8px">${on?`<button id="wSync">Sync water now</button>`:`<button class="primary" id="wConnect">Connect water</button>`}</div>
+    <div class="small muted">In Samsung Health, open Settings, then Health Connect, and make sure Water intake is allowed to sync.</div></div>`;
+}
+function bindWaterPanel(el){
+  const W=waterPlugin(); if(!W) return;
+  const c=$("#wConnect",el); if(c) c.onclick=async()=>{ c.disabled=true; c.textContent="Opening Health Connect…";
+    try{ const r=await W.requestPermission(); if(r&&r.granted){ lsSet("lk-water-on",true); const n=await waterSync(true); toast(n?`Water updated for ${n} day${n>1?"s":""}`:"Water connected"); } else toast(r&&r.available===false?"Health Connect wasn't found on this phone":"Water permission wasn't given. You can allow it in Health Connect settings"); }
+    catch(e){ toast("Couldn't connect water: "+String((e&&e.message)||e)); }
+    render(); };
+  const sy=$("#wSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Syncing…"; const n=await waterSync(true); toast(waterInfo&&waterInfo.err?"Couldn't read water: "+waterInfo.err:n?`Water updated for ${n} day${n>1?"s":""}`:"Water is up to date"); render(); };
+}
 function stepSync(manual){
+  const wp=waterSync(manual);
+  return Promise.all([stepSyncOnly(manual),wp]).then(([a,b])=>a+b);
+}
+function stepSyncOnly(manual){
   const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
   if(stepBusy) return stepBusy;
   // Health Connect limits how often an app may read, so routine syncs are spaced
@@ -2207,7 +2260,7 @@ function renderFood(){
   </div>
 
   <div class="panel">
-    <div class="spread"><span class="water"><span class="eyebrow">Water</span><b class="num">${d.water||0}</b><span class="muted">/ ${s.water} oz</span></span>
+    <div class="spread"><span class="water"><span class="eyebrow">Water</span><b class="num">${d.water||0}</b><span class="muted">/ ${s.water} oz</span></span>${d.waterHC!=null?`<span class="small muted" style="flex-basis:100%">${d.waterHC} oz from your watch${+d.waterAdj?` + ${d.waterAdj} oz added here`:""}</span>`:""}
       <span class="row" style="gap:6px"><button data-wat="-16" aria-label="Remove 16 oz">−16</button><button data-wat="16">+16 oz</button><button data-wat="24">+24</button></span></div>
     <div class="grid2">
       <label class="f">Morning weight (lb)<input id="bw" inputmode="decimal" value="${d.weight??""}" placeholder="${esc(lastWeight()??s.startWeight)}"></label>
@@ -2227,7 +2280,7 @@ function renderFood(){
   el.querySelectorAll("[data-pre]").forEach(b=>b.onclick=()=>add(PRESETS[b.dataset.pre]));
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ const dd=day(foodDate); const foods=[...dd.foods]; const [gone]=foods.splice(+b.dataset.del,1); put("d-"+foodDate,{...dd,foods}); toast("Removed "+gone.n); });
   el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(foodDate,+b.dataset.edit));
-  el.querySelectorAll("[data-wat]").forEach(b=>b.onclick=()=>{ const dd=day(foodDate); put("d-"+foodDate,{...dd,kind:"day",date:foodDate,water:Math.max(0,(dd.water||0)+ +b.dataset.wat)}); });
+  el.querySelectorAll("[data-wat]").forEach(b=>b.onclick=()=>addWater(foodDate,+b.dataset.wat));
   $("#bw",el).addEventListener("change",e=>{ const dd=day(foodDate); const w=numv(e.target.value); put("d-"+foodDate,{...dd,kind:"day",date:foodDate,weight:w}); if(w) toast("Weight saved"); });
   el.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{ const a=b.dataset.fa; if(a==="photo"){ $("#camPhoto").click(); return; } fx.panel=fx.panel===a?null:a; render(); if(fx.panel==="describe") setTimeout(()=>$("#fdesc")?.focus(),0); });
   const ta=$("#fdesc",el); if(ta){ ta.oninput=()=>{fx.desc=ta.value}; $("#fdescGo",el).onclick=onDescribe; }
@@ -2569,7 +2622,7 @@ function renderLog(){
 /* ---------- Render: Settings ---------- */
 function renderMore(){
   const el=$("#v-more"); const s=settings();
-  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}${stepsPanel()}
+  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}${waterPanel()}${stepsPanel()}
   <div class="panel">
     <div class="eyebrow">Daily targets</div>
     <div class="grid2">
@@ -2626,6 +2679,7 @@ function renderMore(){
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
   if(window.NATIVE) NATIVE.bindSetup(el);
+  bindWaterPanel(el);
   const ns=$("#n-sync",el); if(ns&&hcPlugin()) ns.onclick=async()=>{ ns.disabled=true; ns.textContent="Reading steps…";
     try{ const n=await stepSync(true); toast(n?`Steps updated for ${n} day${n>1?"s":""}`:"Steps are up to date"); }
     catch(msg){ toast(/quota|rate/i.test(msg)?"Health Connect asked to wait a bit. Try again later.":/permission|security/i.test(msg)?"Steps permission is off. Open Health Connect settings and allow Steps.":"Couldn't read steps: "+msg); }

@@ -204,8 +204,8 @@ async function keepUpdatePath() {
 function showBanner(text, label, fn) {
   let b = document.getElementById("nat-banner");
   if (!b) { b = document.createElement("div"); b.id = "nat-banner"; document.body.appendChild(b); }
-  b.style.cssText = "position:fixed;left:12px;right:12px;bottom:calc(76px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)));z-index:50;background:#0d3a33;color:#d9f4ef;border:1px solid #35e6bd;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;font:500 15px system-ui";
-  b.innerHTML = `<span>${escH(text)}</span><button style="min-height:40px;background:#35e6bd;color:#022019;border:0;border-radius:10px;padding:8px 12px;font-weight:700">${escH(label)}</button>`;
+  b.style.cssText = "position:fixed;left:12px;right:12px;bottom:calc(76px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)));z-index:50;background:#16213a;color:#f7f5f0;border:1px solid #9c7a34;border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;font:500 15px system-ui";
+  b.innerHTML = `<span>${escH(text)}</span><button style="min-height:40px;background:#17707a;color:#ffffff;border:0;border-radius:10px;padding:8px 12px;font-weight:700">${escH(label)}</button>`;
   b.querySelector("button").onclick = fn;
 }
 
