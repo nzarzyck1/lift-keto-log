@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="14">
+<meta name="app-version" content="15">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -520,7 +520,7 @@ p.note { margin: 0; max-width: 65ch; }
     <ul class="readings" id="readings"></ul>
     <div class="day-foot">
       <span class="status" id="status"></span>
-      <button class="text-btn" id="toToday" hidden>Back to today</button>
+      <span style="display:flex;gap:16px;flex-wrap:wrap"><button class="text-btn" id="makeToday" hidden>Make this today</button><button class="text-btn" id="toToday" hidden>Back to today</button></span>
     </div>
   </section>
 
@@ -1249,6 +1249,8 @@ function renderDay() {
   $("prev").disabled = view <= 1;
   $("next").disabled = view >= DAYS;
   $("toToday").hidden = view === t;
+  $("makeToday").hidden = view === t;
+  $("makeToday").textContent = `Make Day ${view} today`;
   const got = done()[view] || [], ul = $("readings"), rs = readingsFor(view);
   ul.innerHTML = "";
   if (!rs.length) {
@@ -1366,6 +1368,7 @@ function toggle(key, on) {
 $("prev").onclick = () => { if (view > 1) { view--; render(); } };
 $("next").onclick = () => { if (view < DAYS) { view++; render(); } };
 $("toToday").onclick = () => { view = todayDay(); render(); };
+$("makeToday").onclick = () => { const d = today0(); d.setDate(d.getDate() - (view - 1)); state.start = iso(d); $("startDate").value = state.start; save(); build(); view = todayDay(); render(); };
 document.addEventListener("keydown", e => {
   if (e.target.matches("input")) return;
   if (e.key === "ArrowLeft") $("prev").click();
