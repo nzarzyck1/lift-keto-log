@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="11">
+<meta name="app-version" content="12">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -625,7 +625,7 @@ let lastSyncErr=null;
 // Use that number, so the app matches Samsung Health. Fall back to every app's
 // total only if Samsung Health hasn't written anything.
 const SHEALTH="com.sec.android.app.shealth";
-let stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
+let hcReady=false, stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
 const hcPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HealthPlugin;
 function stepSync(manual){
   const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
@@ -636,6 +636,9 @@ function stepSync(manual){
   if(!manual&&Date.now()-last<4*60000) return Promise.resolve(0);
   const back=manual||!stepInfo||!stepInfo.full||Date.now()-stepInfo.full>12*3600e3?13:1;
   stepBusy=(async()=>{
+    // the health plugin only sets up its Health Connect client inside isHealthAvailable,
+    // so call it first after every app start
+    if(!hcReady){ const av=await H.isHealthAvailable(); if(!av||!av.available) throw new Error("Health Connect isn't available on this phone"); hcReady=true; }
     const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-back);
     // Samsung Health's own records add up to the number it shows. Health Connect's
     // de-duplicated total can prefer the phone's step counter and drop watch steps.
