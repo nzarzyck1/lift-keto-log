@@ -3,10 +3,11 @@
 //    db -> saved on the phone, sample -> Anthropic API with the user's own key,
 //    downloads -> Android share sheet, user -> fixed local id.
 // 2. Reads daily steps from Health Connect (Samsung Health syncs there).
-// 3. Loads the newest app.html: the copy bundled in the APK, or a newer one
-//    downloaded from GitHub Pages, so app changes arrive without reinstalling.
+// 3. Keeps the app current: downloads a newer app.html from GitHub Pages into
+//    app storage and points the web view at it (Capacitor's live-update path),
+//    so app changes arrive without reinstalling. A new APK resets to its bundle.
 import Anthropic from "@anthropic-ai/sdk";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, WebView } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -16,7 +17,7 @@ const UPDATE_BASE = (typeof __UPDATE_BASE__ !== "undefined" && __UPDATE_BASE__) 
 const SHELL_VERSION = (typeof __SHELL_VERSION__ !== "undefined" && __SHELL_VERSION__) || 1;
 const MODEL = "claude-opus-5-5";
 
-const K = { db: "lk-native-db", key: "lk-api-key", app: "lk-app-cache", hc: "lk-hc-on", hcLast: "lk-hc-last" };
+const K = { db: "lk-native-db", key: "lk-api-key", hc: "lk-hc-on", hcLast: "lk-hc-last" };
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
@@ -127,11 +128,12 @@ window.claude = {
 };
 
 /* ---------- Health Connect steps ---------- */
+const within = (p, ms, code) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code }), ms))]);
 const hc = {
-  async available() { if (!isNative) return false; try { return !!(await Health.isHealthAvailable()).available; } catch (e) { return false; } },
+  async available() { if (!isNative) return false; try { return !!(await within(Health.isHealthAvailable(), 10000, "hc_timeout")).available; } catch (e) { return false; } },
   async connect() {
     if (!(await hc.available())) { try { await Health.showHealthConnectInPlayStore(); } catch (e) {} throw { code: "hc_missing" }; }
-    const r = await Health.requestHealthPermissions({ permissions: ["READ_STEPS"] });
+    const r = await within(Health.requestHealthPermissions({ permissions: ["READ_STEPS"] }), 180000, "hc_timeout");
     const ok = JSON.stringify(r || {}).includes('"READ_STEPS":true');
     ls.set(K.hc, ok); if (!ok) throw { code: "hc_denied" };
     return true;
@@ -139,7 +141,7 @@ const hc = {
   async sync() {
     if (!ls.get(K.hc, false) || !window.APP) return 0;
     const end = new Date(); const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 13);
-    const r = await Health.queryAggregated({ startDate: start.toISOString(), endDate: end.toISOString(), dataType: "steps", bucket: "day" });
+    const r = await within(Health.queryAggregated({ startDate: start.toISOString(), endDate: end.toISOString(), dataType: "steps", bucket: "day" }), 30000, "hc_timeout");
     let n = 0;
     for (const s of (r && r.aggregatedData) || []) {
       const raw = String(s.startDate || "");
@@ -161,21 +163,42 @@ function syncSteps(manual) {
 }
 
 /* ---------- updates ---------- */
-let running = 0, latestShell = 0;
+let running = 0, latestShell = 0, staged = 0;
+const injectNative = (html) => html.replace(/(<meta name="app-version" content="\d+">)/, '$1\n<script src="native.js"></script>');
 async function checkUpdate(manual) {
   if (!UPDATE_BASE) { if (manual) APP.toast("Updates aren't set up in this build"); return; }
   try {
     const j = await (await fetch(UPDATE_BASE + "version.json?t=" + Date.now(), { cache: "no-store" })).json();
     latestShell = +j.shell || 0;
-    const have = Math.max(running, (ls.get(K.app, null) || {}).v || 0);
-    if (+j.version > have) {
+    if (+j.version > Math.max(running, staged) && isNative) {
       const html = await (await fetch(UPDATE_BASE + "app.html?t=" + Date.now(), { cache: "no-store" })).text();
       if (appVersion(html) === +j.version && html.includes("window.APP=")) {
-        if (ls.set(K.app, { v: +j.version, html })) showBanner("An update is ready.", "Restart now", () => location.reload());
+        const nativeJs = await (await fetch("native.js", { cache: "no-store" })).text();
+        const dir = "lk-www-" + j.version;
+        await Filesystem.writeFile({ path: dir + "/index.html", data: injectNative(html), directory: Directory.Data, encoding: Encoding.UTF8, recursive: true });
+        await Filesystem.writeFile({ path: dir + "/native.js", data: nativeJs, directory: Directory.Data, encoding: Encoding.UTF8, recursive: true });
+        const { uri } = await Filesystem.getUri({ path: dir, directory: Directory.Data });
+        const path = decodeURIComponent(uri.replace(/^file:\/\//, ""));
+        staged = +j.version;
+        showBanner("An update is ready.", "Restart now", () => WebView.setServerBasePath({ path }));
       }
     } else if (manual) APP.toast(latestShell > SHELL_VERSION ? "There's a new app install, see Setup" : "You have the newest version");
-    if (manual && APP && document.getElementById("v-more") && !document.getElementById("v-more").hidden) APP.render();
+    if (manual && document.getElementById("v-more") && !document.getElementById("v-more").hidden) APP.render();
   } catch (e) { if (manual) APP.toast("Couldn't check for updates. Are you online?"); }
+}
+async function keepUpdatePath() {
+  // After a restart into a downloaded update, make it stick across app launches,
+  // and tidy away older downloaded versions.
+  try {
+    const { path } = await WebView.getServerBasePath();
+    if (path && /lk-www-\d+/.test(path)) await WebView.persistServerBasePath();
+    const cur = (/lk-www-(\d+)/.exec(path || "") || [])[1];
+    const { files } = await Filesystem.readdir({ path: "", directory: Directory.Data });
+    for (const f of files || []) {
+      const name = typeof f === "string" ? f : f.name;
+      if (/^lk-www-\d+$/.test(name) && name !== "lk-www-" + cur) await Filesystem.rmdir({ path: name, directory: Directory.Data, recursive: true }).catch(() => {});
+    }
+  } catch (e) {}
 }
 function showBanner(text, label, fn) {
   let b = document.getElementById("nat-banner");
@@ -214,9 +237,15 @@ const NATIVE = {
   bindSetup(el) {
     const $ = (s) => el.querySelector(s);
     const on = (id, fn) => { const b = $(id); if (b) b.onclick = fn; };
-    on("#n-hc", async () => {
+    on("#n-hc", async (ev) => {
+      const btn = ev.currentTarget; btn.disabled = true; btn.textContent = "Opening Health Connect…";
       try { await hc.connect(); APP.toast("Connected to Samsung Health"); await syncSteps(true); }
-      catch (e) { APP.toast(e && e.code === "hc_missing" ? "Install or update Health Connect, then try again" : "Steps permission wasn't given"); }
+      catch (e) {
+        const c = e && e.code;
+        APP.toast(c === "hc_missing" ? "Health Connect wasn't found. Install or update it, then try again"
+          : c === "hc_timeout" ? "Health Connect didn't answer. Try again, or open Health Connect settings"
+          : "Steps permission wasn't given. You can allow it in Health Connect settings");
+      }
       APP.render();
     });
     on("#n-sync", async () => { await syncSteps(true); APP.render(); });
@@ -240,24 +269,14 @@ const NATIVE = {
 window.NATIVE = NATIVE;
 
 /* ---------- boot ---------- */
-async function boot() {
-  let bundled = "";
-  try { bundled = await (await fetch("app.html", { cache: "no-store" })).text(); } catch (e) {}
-  const cached = ls.get(K.app, null);
-  let html = bundled;
-  if (cached && cached.html && cached.v > appVersion(bundled)) html = cached.html;
-  else if (cached && cached.v <= appVersion(bundled)) { try { localStorage.removeItem(K.app); } catch (e) {} }
-  running = appVersion(html);
-  const keep = ["top", "right", "bottom", "left"].map((s) => ["--safe-area-inset-" + s, document.documentElement.style.getPropertyValue("--safe-area-inset-" + s)]);
-  document.open(); document.write(html); document.close();
-  keep.forEach(([k, v]) => { if (v) document.documentElement.style.setProperty(k, v); });
-
-  const ready = () => {
-    if (!window.APP) return setTimeout(ready, 100);
-    syncSteps(false);
-    checkUpdate(false);
-    App.addListener("resume", () => { syncSteps(false); checkUpdate(false); });
-  };
-  setTimeout(ready, 300);
+// This script runs in <head> before the app's own script, so window.claude is ready.
+running = appVersion(document.documentElement.outerHTML.slice(0, 2000));
+function ready() {
+  if (!window.APP) return setTimeout(ready, 150);
+  syncSteps(false);
+  checkUpdate(false);
+  if (isNative) keepUpdatePath();
+  App.addListener("resume", () => { syncSteps(false); checkUpdate(false); });
 }
-boot();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(ready, 300));
+else setTimeout(ready, 300);

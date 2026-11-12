@@ -4,3 +4,4 @@ web/version.json
 *.keystore
 *.jks
 _site/
+web/index.html

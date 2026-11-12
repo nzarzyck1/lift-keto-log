@@ -13,9 +13,11 @@ and the daily plan. All log data stays on the phone.
   Android app. It stands in for the claude.ai runtime (`window.claude.use`):
   `db` saves on the phone, `sample` calls the Anthropic API, `downloads` opens the
   share sheet. It also syncs steps and loads app updates.
-- On launch the app shows the newest of: the `app.html` built into the APK, or a
-  newer one it downloaded earlier from GitHub Pages. It then checks Pages for a
-  newer `version.json` and offers a restart when one is ready.
+- `web/index.html` is generated at build: `app.html` with `<script src="native.js">` in its head.
+- Updates: native.js downloads a newer `app.html` from Pages into app storage and
+  points the web view there (Capacitor `WebView.setServerBasePath`, persisted).
+  A new APK install resets to its bundled copy. (v1 used document.write, which
+  broke the native bridge; do not go back to that.)
 
 ## Making a change (most changes)
 

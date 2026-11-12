@@ -11,5 +11,6 @@ await build({
   entryPoints: ["src/native.js"], bundle: true, format: "iife", target: "chrome100", minify: true,
   outfile: "web/native.js", define: { __UPDATE_BASE__: JSON.stringify(base), __SHELL_VERSION__: String(shell) },
 });
+fs.writeFileSync("web/index.html", app.replace(m[0], m[0] + '\n<script src="native.js"></script>'));
 fs.writeFileSync("web/version.json", JSON.stringify({ version: +m[1], shell }) + "\n");
 console.log(`built native.js (update base: ${base || "none"}), app v${m[1]}, shell v${shell}`);
