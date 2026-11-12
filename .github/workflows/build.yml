@@ -57,8 +57,6 @@ jobs:
       - uses: actions/setup-java@v4
         if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
         with: { distribution: temurin, java-version: 21 }
-      - uses: android-actions/setup-android@v3
-        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
       - name: Build the APK
         if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
         env:
