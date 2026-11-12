@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="10">
+<meta name="app-version" content="11">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -627,11 +627,16 @@ let lastSyncErr=null;
 const SHEALTH="com.sec.android.app.shealth";
 let stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
 const hcPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HealthPlugin;
-function stepSync(){
+function stepSync(manual){
   const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
   if(stepBusy) return stepBusy;
+  // Health Connect limits how often an app may read, so routine syncs are spaced
+  // out and only look at the last 2 days; a manual sync or the first one reads 14.
+  const last=(stepInfo&&stepInfo.at)||0;
+  if(!manual&&Date.now()-last<4*60000) return Promise.resolve(0);
+  const back=manual||!stepInfo||!stepInfo.full||Date.now()-stepInfo.full>12*3600e3?13:1;
   stepBusy=(async()=>{
-    const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-13);
+    const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-back);
     // Samsung Health's own records add up to the number it shows. Health Connect's
     // de-duplicated total can prefer the phone's step counter and drop watch steps.
     const rec=await H.queryRecords({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps"});
@@ -654,9 +659,14 @@ function stepSync(){
       const st=Math.round(val);
       if(st>0&&date<=t&&(+day(date).steps||0)!==st){ saveSteps(date,st); n++; }
     }
-    stepInfo={src,by,at:Date.now()}; lsSet("lk-steps-info",stepInfo);
+    stepInfo={src,by,at:Date.now(),full:back>1?Date.now():(stepInfo&&stepInfo.full)||0,err:""}; lsSet("lk-steps-info",stepInfo);
     return n;
-  })().catch(()=>0).finally(()=>{ stepBusy=null; });
+  })().catch(e=>{
+    const msg=String((e&&(e.message||e.errorMessage||e.code))||e||"unknown error");
+    stepInfo={...(stepInfo||{by:{},src:"Samsung Health"}),at:Date.now(),err:msg}; lsSet("lk-steps-info",stepInfo);
+    if(manual) throw msg;
+    return 0;
+  }).finally(()=>{ stepBusy=null; });
   return stepBusy;
 }
 function stepsPanel(){
@@ -664,6 +674,7 @@ function stepsPanel(){
   const parts=Object.entries(stepInfo.by||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${fmtK(v)}`);
   return `<div class="panel"><div class="eyebrow">Where steps come from</div>
     <div class="small">Using <b>${esc(stepInfo.src)}</b>, so the app matches what Samsung Health shows.${parts.length?` Today in Health Connect: ${parts.join(" · ")}.`:""}</div>
+    ${stepInfo.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(stepInfo.err)}${/quota|rate/i.test(stepInfo.err)?" (Health Connect asks apps to slow down; it clears up on its own within the hour)":""}</div>`:""}
     <div class="small muted">Samsung Health sends steps to Health Connect every so often, so today's count can lag a bit. Opening Samsung Health makes it send right away.</div></div>`;
 }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),1500); });
@@ -1506,6 +1517,10 @@ function renderMore(){
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
   if(window.NATIVE) NATIVE.bindSetup(el);
+  const ns=$("#n-sync",el); if(ns&&hcPlugin()) ns.onclick=async()=>{ ns.disabled=true; ns.textContent="Reading steps…";
+    try{ const n=await stepSync(true); toast(n?`Steps updated for ${n} day${n>1?"s":""}`:"Steps are up to date"); }
+    catch(msg){ toast(/quota|rate/i.test(msg)?"Health Connect asked to wait a bit. Try again later.":/permission|security/i.test(msg)?"Steps permission is off. Open Health Connect settings and allow Steps.":"Couldn't read steps: "+msg); }
+    render(); };
   bindCloud(el);
 }
 
