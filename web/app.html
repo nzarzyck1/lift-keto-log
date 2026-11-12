@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="7">
+<meta name="app-version" content="8">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -235,6 +235,19 @@ ul.tips li{padding-left:18px;position:relative}
 ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);font-weight:700}
 .plan{display:flex;flex-direction:column;gap:8px}
 .pday{border-left:2px solid var(--accent);padding:4px 0 4px 10px;display:flex;flex-direction:column;gap:2px;font-size:15px}
+.pday.away{border-left-color:var(--carb)}
+.where{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--carb)}
+.psetup{display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--sunk)}
+.prow{display:grid;grid-template-columns:7.5em 1fr;gap:8px;align-items:center}
+.prow select{min-width:0}
+.checks{display:flex;flex-wrap:wrap;gap:6px 14px}
+.checks label{display:flex;align-items:center;gap:6px;font-size:15px;cursor:pointer}
+.checks input{width:20px;height:20px;min-height:0}
+.shop{display:flex;flex-direction:column;gap:10px}
+.shop ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.shop li label{display:flex;gap:10px;align-items:flex-start;font-size:15px;cursor:pointer}
+.shop li input{width:20px;height:20px;min-height:0;margin-top:2px;flex:none}
+.shop li.got span{text-decoration:line-through;color:var(--muted)}
 .klevels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .klevels button{display:flex;align-items:center;gap:6px;font-size:14px;min-height:40px;padding:6px 8px}
 .klevels button.sel{border-color:var(--ketone);box-shadow:inset 0 0 0 1px var(--ketone)}
@@ -1518,7 +1531,20 @@ function model(){
   const cur=rows.length?rows[rows.length-1].est:+s.startWeight;
   return {rows,weighed,avgBal,cur,lbWk:avgBal!=null?-avgBal*7/3500:null};
 }
-const dash={kView:"day", plan:lsGet("lk-plan",null), planLoading:false, planErr:""};
+const dash={kView:"day", plan:lsGet("lk-plan",null), planLoading:false, planErr:"", planOpen:false};
+const WHERE=[["home","Home"],["hotel","Hotel"],["fly-out","Flying out to site"],["fly-home","Flying home"],["drive","Driving / road day"]];
+const ROOM=[["fridge","Mini fridge"],["bigfridge","Full-size fridge"],["freezer","Freezer"],["microwave","Microwave"],["stovetop","Stovetop"],["oven","Oven"],["kitchen","Full kitchen (pots, pans, utensils)"],["breakfast","Free hotel breakfast"],["gym","Hotel gym"]];
+function planCfg(){ const c=settings().plan||{}; return {days:c.days||7, where:c.where||{}, room:c.room||["fridge","microwave"], notes:c.notes||""}; }
+function savePlanCfg(patch){ const cur=view().settings||{}; const c={...planCfg(),...patch};
+  const keep={}; for(const [d,v] of Object.entries(c.where)) if(d>=today()) keep[d]=v; c.where=keep;
+  put("settings",{...cur,plan:c}); }
+function flushPlanNotes(){ if(dash.planNotes!=null){ const v=dash.planNotes.trim(); dash.planNotes=null; if(v!==planCfg().notes) savePlanCfg({notes:v}); } }
+function planDates(){ const c=planCfg(); return Array.from({length:c.days},(_,i)=>addDays(today(),i)); }
+function whereOn(date){ const c=planCfg(); if(c.where[date]) return c.where[date];
+  // a day with no setting carries over from the day before (a hotel stay usually lasts several nights)
+  const prev=Object.keys(c.where).filter(d=>d<date).sort().pop(); const v=prev?c.where[prev]:"home";
+  return v==="fly-out"?"hotel":v==="fly-home"||v==="drive"?"home":v; }
+const whereLabel=k=>(WHERE.find(x=>x[0]===k)||WHERE[0])[1];
 function fmtK(n){ return Math.round(n).toLocaleString(); }
 function weightChart(m){
   const s=settings(); const W=360,H=190,L=38,R=12,T=14,B=26;
@@ -1696,9 +1722,10 @@ function renderStatus(){
   <div class="hud">
     <div class="eyebrow">Rest of the week</div><h2>Suggestions</h2>
     <ul class="tips">${tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>
-    ${dash.plan&&dash.plan.date===today()?`<div class="plan">${dash.plan.headline?`<div class="banner">${esc(dash.plan.headline)}</div>`:""}${(dash.plan.days||[]).map(d=>`<div class="pday"><div class="eyebrow">${esc(d.day)}</div><div><b>Train:</b> ${esc(d.train||"")}</div><div><b>Eat:</b> ${esc(d.eat||"")}</div>${d.note?`<div class="small muted">${esc(d.note)}</div>`:""}</div>`).join("")}</div>`:""}
+    ${planSetupHtml()}
+    ${dash.plan&&dash.plan.date===today()?planHtml(dash.plan):""}
     ${dash.planErr?`<div class="small" style="color:var(--bad)">${esc(dash.planErr)}</div>`:""}
-    <button id="planBtn" ${dash.planLoading?"disabled":""}>${dash.planLoading?"Building your plan…":dash.plan&&dash.plan.date===today()?"Rebuild day-by-day plan":"Get a day-by-day plan from Claude"}</button>
+    <button id="planBtn" class="primary" ${dash.planLoading?"disabled":""}>${dash.planLoading?"Building your plan…":dash.plan&&dash.plan.date===today()?"Rebuild my plan":"Get a day-by-day plan from Claude"}</button>
   </div>`;
   el.querySelectorAll("[data-kv]").forEach(b=>b.onclick=()=>{dash.kView=b.dataset.kv;render()});
   $("#kPhoto",el).onclick=()=>$("#camKetone").click();
@@ -1706,7 +1733,45 @@ function renderStatus(){
   el.querySelectorAll("[data-klev]").forEach(b=>b.onclick=()=>saveKetone(b.dataset.klev,"manual"));
   el.querySelectorAll("[data-kdel]").forEach(b=>b.onclick=()=>{put(b.dataset.kdel,null);toast("Reading deleted")});
   $("#planBtn",el).onclick=()=>buildPlan(m,w);
+  bindPlanSetup(el);
 }
+function planSetupHtml(){
+  const c=planCfg(); const ds=planDates(); const away=ds.some(d=>whereOn(d)!=="home");
+  const summary=away?ds.map(d=>whereOn(d)).filter((v,i,a)=>i===0||v!==a[i-1]).map(whereLabel).join(" → "):"Home all week";
+  if(!dash.planOpen) return `<button id="psToggle" class="psetup" style="text-align:left;cursor:pointer;font-weight:500"><span class="eyebrow">Where you'll be · ${c.days} days</span><span class="small">${esc(summary)}. Tap to change.</span></button>`;
+  return `<div class="psetup">
+    <div class="spread"><span class="eyebrow">Where you'll be</span><div class="toggle" role="group" aria-label="Plan length">${[3,5,7].map(n=>`<button data-pdays="${n}" class="${c.days===n?"sel":""}" aria-pressed="${c.days===n}">${n} days</button>`).join("")}</div></div>
+    ${ds.map(d=>`<div class="prow"><span class="small">${d===today()?"Today":esc(parseYmd(d).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}))}</span><select data-pwhere="${d}">${WHERE.map(([k,l])=>`<option value="${k}" ${whereOn(d)===k?"selected":""}>${l}</option>`).join("")}</select></div>`).join("")}
+    <div class="small muted">A hotel stay carries over to the next days until you change it.</div>
+    <div class="eyebrow">Hotel room has</div>
+    <div class="checks">${ROOM.map(([k,l])=>`<label><input type="checkbox" data-proom="${k}" ${c.room.includes(k)?"checked":""}>${l}</label>`).join("")}</div>
+    <label class="f">Anything else? (stores nearby, long site days, meals provided)<textarea id="pnotes" rows="2" placeholder="e.g. Walmart 5 min away. On site 6 am to 6 pm, lunch on the go.">${esc(c.notes)}</textarea></label>
+    <button id="psToggle">Done</button>
+  </div>`;
+}
+function bindPlanSetup(el){
+  const t=$("#psToggle",el); if(t) t.onclick=()=>{ dash.planOpen=!dash.planOpen; flushPlanNotes(); render(); };
+  el.querySelectorAll("[data-pdays]").forEach(b=>b.onclick=()=>savePlanCfg({days:+b.dataset.pdays}));
+  el.querySelectorAll("[data-pwhere]").forEach(x=>x.onchange=()=>{ const c=planCfg(); const wh={...c.where,[x.dataset.pwhere]:x.value};
+    // pin the days before it so they don't shift when this one changes
+    for(const d of planDates()){ if(d<x.dataset.pwhere&&!wh[d]) wh[d]=whereOn(d); }
+    savePlanCfg({where:wh}); });
+  el.querySelectorAll("[data-proom]").forEach(x=>x.onchange=()=>{ const c=planCfg(); const r=new Set(c.room); x.checked?r.add(x.dataset.proom):r.delete(x.dataset.proom); savePlanCfg({room:[...r]}); });
+  const n=$("#pnotes",el); if(n) n.oninput=()=>{ dash.planNotes=n.value; };
+  el.querySelectorAll("[data-shop]").forEach(x=>x.onchange=()=>{ const g=lsGet("lk-shop",{}); g[x.dataset.shop]=x.checked; lsSet("lk-shop",g); x.closest("li").classList.toggle("got",x.checked); });
+  const cp=$("#shopCopy",el); if(cp) cp.onclick=async()=>{ const txt=shopText(dash.plan);
+    try{ if(navigator.share){ await navigator.share({title:"Shopping list",text:txt}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+    try{ await navigator.clipboard.writeText(txt); toast("Shopping list copied"); }catch(e){ toast("Couldn't copy the list"); } };
+}
+function planHtml(p){
+  const got=lsGet("lk-shop",{});
+  return `<div class="plan">${p.headline?`<div class="banner">${esc(p.headline)}</div>`:""}
+  ${(p.days||[]).map(d=>`<div class="pday ${d.where&&d.where!=="Home"?"away":""}"><div class="spread"><span class="eyebrow">${esc(d.day)}</span>${d.where?`<span class="where">${esc(d.where)}</span>`:""}</div><div><b>Train:</b> ${esc(d.train||"")}</div><div><b>Eat:</b> ${esc(d.eat||"")}</div>${d.note?`<div class="small muted">${esc(d.note)}</div>`:""}</div>`).join("")}
+  ${(p.shopping||[]).length?`<div class="shop"><div class="spread"><h3>Shopping list</h3><button id="shopCopy">Share list</button></div>
+    ${p.shopping.map((g,gi)=>`<div><div class="eyebrow" style="margin-bottom:4px">${esc(g.where||g.group||"")}</div><ul>${(g.items||[]).map((it,ii)=>{ const id=p.date+"|"+gi+"|"+ii; return `<li class="${got[id]?"got":""}"><label><input type="checkbox" data-shop="${esc(id)}" ${got[id]?"checked":""}><span>${esc(it.item)}${it.qty?` · <b>${esc(it.qty)}</b>`:""}${it.why?` <span class="small muted">(${esc(it.why)})</span>`:""}</span></label></li>`; }).join("")}</ul></div>`).join("")}</div>`:""}
+  </div>`;
+}
+function shopText(p){ return "Shopping list\n"+(p.shopping||[]).map(g=>`\n${g.where||g.group||""}\n`+(g.items||[]).map(it=>`- ${it.item}${it.qty?" ("+it.qty+")":""}`).join("\n")).join("\n"); }
 function saveKetone(level,src){ const now=Date.now(); put("k-"+now,{kind:"ketone",date:today(),ts:new Date(now).toISOString(),level,mmol:KLEVELS[KIDX[level]].mmol,src}); toast(`Ketones: ${KLEVELS[KIDX[level]].l} saved`); }
 async function onKetonePhoto(file){
   if(!file) return;
@@ -1723,16 +1788,25 @@ Respond with only JSON: {"level": "negative" | "trace" | "small" | "moderate" | 
 }
 async function buildPlan(m,w){
   const s=settings(); dash.planLoading=true; dash.planErr=""; render();
-  const daysLeft=w.days.filter(d=>d>=today()).map(d=>parseYmd(d).toLocaleDateString(undefined,{weekday:"long"}));
+  flushPlanNotes(); dash.planOpen=false;
+  const c=planCfg(); const ds=planDates();
+  const roomTxt=c.room.length?ROOM.filter(([k])=>c.room.includes(k)).map(([,l])=>l).join(", "):"nothing (no fridge, no microwave)";
+  const dayLines=ds.map(d=>`${parseYmd(d).toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})}${d===today()?" (today)":""}: ${whereLabel(whereOn(d))}`).join("\n");
+  const anyHotel=ds.some(d=>whereOn(d)!=="home");
   const recent=m.rows.filter(r=>r.date>=w.mon).map(r=>`${r.date}: ${r.logged?`${fmtK(r.t.kcal)} kcal, ${Math.round(r.t.p)}P/${r1(r.t.c)}C/${Math.round(r.t.f)}F, burn ~${fmtK(r.burn)}`:"no food logged"}; training: ${r.ex.items.join(", ")||"none"}; ketones: ${r.ket?r.ket.level:"not tested"}`).join("\n");
   const prompt=`${ctxText()}
 His program: 4 lifts a week rotating Lower 1, Upper 1, Lower 2, Upper 2, plus 2-3 cardio sessions (incline walks). Week ${weekNo(today())}, phase: ${phase(weekNo(today())).name}. Next lift in rotation: ${WMAP[nextWorkoutId()].name}.
 Targets: ${s.proteinMin}-${s.protein} g protein, max ${s.carbs} g net carbs, ~${s.fat} g fat, ${s.water} oz water.
 This week so far (lifts done ${w.lifts}/4, cardio ${w.cardio}):
 ${recent}
-Days left this week, including today: ${daysLeft.join(", ")}.
-Write a short, practical plan for each remaining day: which workout (or rest/cardio), and what to eat (specific foods, protein-first, keto). Be encouraging but direct.
-Respond with only JSON: {"headline": string (one sentence), "days": [{"day": string, "train": string, "eat": string, "note": string}]}`;
+He travels for work (flies out to job sites and stays in hotels). Where he'll be each day of this plan:
+${dayLines}
+${anyHotel?`Hotel room has: ${roomTxt}. Only plan hotel meals he can actually make or store with that (no cooking without a stovetop or oven; nothing needing a freezer unless there is one; keep fridge items to what fits a ${c.room.includes("bigfridge")?"full-size":"mini"} fridge). ${c.room.includes("gym")?"The hotel has a gym, so lifts can use the hotel swaps (dumbbells, cables, machines).":"No hotel gym is listed, so hotel-day training should be bodyweight, a resistance band, or a walk."}`:""}
+${c.notes?`His notes: ${c.notes}`:""}
+Write a short, practical plan for each of these ${ds.length} days, in order: which workout (or rest/cardio), and what to eat (specific foods, protein-first, keto). On flying days, plan around airports and the flight: what to pack in a carry-on and keto-friendly picks at typical airport spots, and keep training light or skip it. On hotel days, use foods that need little or no prep and fit the room.
+Then write a shopping list that covers these days. Group it by where he should buy it: "Before you leave (from home)" for things to pack, and "Near the hotel" for perishables to buy after arriving, or "Grocery run" if he's home the whole time. Give realistic quantities for the number of days, and leave out kitchen staples he likely has unless he's in a hotel.
+Be encouraging but direct.
+Respond with only JSON: {"headline": string (one sentence), "days": [{"day": string (e.g. "Thu, Nov 13"), "where": string (Home / Hotel / Flying out / Flying home / Driving), "train": string, "eat": string, "note": string}], "shopping": [{"where": string, "items": [{"item": string, "qty": string, "why": string (a few words, optional)}]}]}`;
   try{ const out=await askClaude(prompt); dash.plan={...out,date:today()}; lsSet("lk-plan",dash.plan); }
   catch(e){ dash.planErr=aiError(e); }
   dash.planLoading=false; render();
