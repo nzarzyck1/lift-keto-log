@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="9">
+<meta name="app-version" content="10">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -244,6 +244,13 @@ ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);
 .checks label{display:flex;align-items:center;gap:6px;font-size:15px;cursor:pointer}
 .checks input{width:20px;height:20px;min-height:0}
 .shop{display:flex;flex-direction:column;gap:10px}
+.have li{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+.have ul{list-style:none;margin:0;padding:0}
+.vchip{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px;border:1px solid currentColor;white-space:nowrap}
+.v-great,.v-keep{color:var(--good)} .v-ok{color:var(--accent)} .v-check{color:var(--warn)} .v-avoid,.v-skip{color:var(--bad)}
+.review{display:flex;flex-direction:column;gap:8px}
+.review .ri{border-left:2px solid var(--line);padding:2px 0 2px 10px}
+.review a{color:var(--accent);font-size:13px}
 .meal{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--sunk);display:flex;flex-direction:column;gap:4px;margin-top:4px}
 .meal .mtop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .meal .place{font-weight:600;font-size:16px}
@@ -298,6 +305,8 @@ ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);
 <input type="file" id="camLabel" accept="image/*" capture="environment" hidden>
 <input type="file" id="camKetone" accept="image/*" capture="environment" hidden>
 <input type="file" id="pickKetone" accept="image/*" hidden>
+<input type="file" id="camHave" accept="image/*" capture="environment" hidden>
+<input type="file" id="pickHave" accept="image/*" multiple hidden>
 <input type="file" id="camSteps" accept="image/*" hidden>
 
 <script>
@@ -721,7 +730,7 @@ async function cloudPull(token){
 async function cloudPush(token){
   const all=view();
   // anything on this phone the account has never seen goes up too
-  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-)/.test(id)||id==="settings")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
+  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
   const ids=Object.keys(cloudQ); if(!ids.length) return 0;
   const sent={...cloudQ};
   for(let i=0;i<ids.length;i+=200){
@@ -1086,7 +1095,9 @@ function renderFood(){
     </div>
     ${stepsEntry(foodDate)}
   </div>
+  ${haveHtml()}
   `;
+  bindHave(el);
   $("#dPrev",el).onclick=()=>{foodDate=addDays(foodDate,-1);render()};
   $("#dNext",el).onclick=()=>{if(!isToday){foodDate=addDays(foodDate,1);render()}};
   const add=f=>{ addFoods(foodDate,[plainFood(f)]); toast("Added "+f.n); };
@@ -1490,7 +1501,7 @@ function renderMore(){
   $("#imp",el).onchange=async e=>{
     const f=e.target.files[0]; if(!f) return;
     try{ const data=JSON.parse(await f.text()); let n=0;
-      for(const [k,v] of Object.entries(data)){ if(v&&typeof v==="object"&&(/^(s-|d-|a-|k-)/.test(k)||k==="settings")){ pending[k]=v; n++; } }
+      for(const [k,v] of Object.entries(data)){ if(v&&typeof v==="object"&&(/^(s-|d-|a-|k-|i-)/.test(k)||k==="settings")){ pending[k]=v; n++; } }
       lsSet(PENDING,pending); render(); await flush(); toast("Restored "+n+" entries");
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
@@ -1826,6 +1837,88 @@ Respond with only JSON: {"level": "negative" | "trace" | "small" | "moderate" | 
     drawSheet(); };
   s.retry=run; run();
 }
+
+/* ---------- What you have: supplements and groceries ---------- */
+const VLABEL={great:"great",keep:"keep",ok:"ok",check:"ask your doctor",avoid:"avoid",skip:"skip"};
+function haveItems(){ return Object.entries(view()).filter(([k,v])=>v&&v.kind==="item").map(([k,v])=>({...v,id:k})).sort((a,b)=>String(a.name).localeCompare(String(b.name))); }
+const hv={busy:"",err:"",reviewBusy:false,review:lsGet("lk-supp-review",null)};
+function haveHtml(){
+  const its=haveItems(); const sup=its.filter(x=>x.type==="supplement"), food=its.filter(x=>x.type!=="supplement");
+  const li=x=>`<li><div><div>${esc(x.name)}${x.amount?` <span class="small muted">${esc(x.amount)}</span>`:""}</div>${x.why?`<div class="small muted">${esc(x.why)}</div>`:""}</div><div class="row" style="gap:6px;flex:none">${x.verdict?`<span class="vchip v-${esc(x.verdict)}">${esc(VLABEL[x.verdict]||x.verdict)}</span>`:""}<button class="xbtn" data-hdel="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></div></li>`;
+  const r=hv.review;
+  return `<div class="panel have">
+    <div class="eyebrow">What you have</div>
+    <div class="small muted">Snap your supplements and groceries (a shelf, the fridge, a bag from the store). Claude lists each one, says whether it fits keto, and your plan and shopping list use what you already have.</div>
+    <div class="row" style="gap:8px"><button class="primary" id="hCam">Take photo</button><button id="hPick">Upload photos</button></div>
+    ${hv.busy?`<div class="small">${esc(hv.busy)}</div>`:""}${hv.err?`<div class="small" style="color:var(--bad)">${esc(hv.err)}</div>`:""}
+    ${sup.length?`<div><div class="eyebrow">Supplements (${sup.length})</div><ul>${sup.map(li).join("")}</ul></div>`:""}
+    ${food.length?`<div><div class="eyebrow">Groceries (${food.length})</div><ul>${food.map(li).join("")}</ul></div>`:""}
+    ${sup.length?`<button id="hReview" ${hv.reviewBusy?"disabled":""}>${hv.reviewBusy?"Checking the research… (1 to 2 min)":r?"Re-check my supplements":"Check my supplements against the research"}</button>`:""}
+    ${r?reviewHtml(r):""}
+  </div>`;
+}
+function reviewHtml(r){
+  const src=a=>(a||[]).slice(0,3).map(x=>`<a href="${esc(x.url)}" ${window.NATIVE?"":'target="_blank" rel="noopener"'}>${esc(x.title||x.url)}</a>`).join(" · ");
+  return `<div class="review">
+    <div class="eyebrow">Supplement check · ${esc(fmtShort(r.date||today()))}</div>
+    ${r.summary?`<div class="banner">${esc(r.summary)}</div>`:""}
+    ${(r.items||[]).map(x=>`<div class="ri"><div class="spread"><b>${esc(x.name)}</b>${x.verdict?`<span class="vchip v-${esc(x.verdict)}">${esc(VLABEL[x.verdict]||x.verdict)}</span>`:""}</div><div class="small">${esc(x.why||"")}</div>${x.how?`<div class="small muted">${esc(x.how)}</div>`:""}${(x.sources||[]).length?`<div>${src(x.sources)}</div>`:""}</div>`).join("")}
+    ${(r.add||[]).length?`<div class="eyebrow">Worth adding</div>${r.add.map(x=>`<div class="ri"><b>${esc(x.name)}</b><div class="small">${esc(x.why||"")}</div>${x.how?`<div class="small muted">${esc(x.how)}</div>`:""}${(x.sources||[]).length?`<div>${src(x.sources)}</div>`:""}</div>`).join("")}`:""}
+    ${(r.cautions||[]).length?`<div class="eyebrow">Bring up with your prescriber</div><ul class="tips">${r.cautions.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>`:""}
+    <div class="small muted">This is a summary of published research, not medical advice. You're on tirzepatide, so run any change by the doctor who prescribes it.</div>
+  </div>`;
+}
+function bindHave(el){
+  const c=$("#hCam",el); if(c) c.onclick=()=>$("#camHave").click();
+  const p=$("#hPick",el); if(p) p.onclick=()=>$("#pickHave").click();
+  el.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=()=>{ put(b.dataset.hdel,null); toast("Removed"); });
+  const rv=$("#hReview",el); if(rv) rv.onclick=reviewSupplements;
+}
+function haveText(){
+  const its=haveItems(); if(!its.length) return "";
+  const sup=its.filter(x=>x.type==="supplement").map(x=>x.name+(x.amount?` (${x.amount})`:"")), food=its.filter(x=>x.type!=="supplement").map(x=>x.name+(x.amount?` (${x.amount})`:""));
+  return `What he already has (from photos):${sup.length?`\nSupplements: ${sup.join(", ")}`:""}${food.length?`\nGroceries: ${food.join(", ")}`:""}`;
+}
+async function onHavePhotos(files){
+  files=[...(files||[])].slice(0,4); if(!files.length) return;
+  hv.err=""; hv.busy="Reading your photo"+(files.length>1?"s":"")+"…"; render();
+  try{
+    const imgs=[]; for(const f of files) imgs.push((await shrink(f,1600)).blob);
+    const have=haveItems().map(x=>x.name).join(", ");
+    const prompt=`${ctxText()}
+The photo${imgs.length>1?"s show":" shows"} supplements and/or groceries he has on hand (a shelf, fridge, pantry, or shopping bag). List every distinct product you can identify. Read labels closely: brand, product name, and for supplements the dose per serving.
+${have?`Already on his list (don't repeat these): ${have}.`:""}
+For each item, judge it for strict keto and his goals (weight loss on tirzepatide, lifting, high protein). For supplements, give a short first read only; a deeper research check happens separately.
+Respond with only JSON: {"items": [{"name": string (brand + product), "type": "supplement" | "food", "amount": string (dose per serving for supplements, or size/count for food, if visible), "verdict": "great" | "ok" | "check" | "avoid" (check = worth asking his doctor), "why": string (one short sentence)}]}`;
+    const out=await askClaude(prompt,imgs);
+    const items=(out.items||[]).filter(x=>x&&x.name);
+    const now=Date.now();
+    items.forEach((x,i)=>put("i-"+(now+i),{kind:"item",type:x.type==="supplement"?"supplement":"food",name:String(x.name),amount:x.amount?String(x.amount):"",verdict:["great","ok","check","avoid"].includes(x.verdict)?x.verdict:"ok",why:x.why?String(x.why):"",added:today()}));
+    hv.busy=""; toast(items.length?`Added ${items.length} item${items.length>1?"s":""}`:"Couldn't spot any products. Try a closer photo.");
+  }catch(e){ hv.busy=""; hv.err=aiError(e); }
+  render();
+}
+async function reviewSupplements(){
+  const sup=haveItems().filter(x=>x.type==="supplement"); if(!sup.length) return;
+  hv.reviewBusy=true; hv.err=""; render();
+  const food=haveItems().filter(x=>x.type!=="supplement").map(x=>x.name).join(", ");
+  const prompt=`${ctxText()}
+He is 245 lb aiming for 190 lb, on tirzepatide (a GLP-1/GIP drug), eating strict keto, lifting 4 days a week, and travels for work.
+His supplements:
+${sup.map(x=>`- ${x.name}${x.amount?` (${x.amount})`:""}`).join("\n")}
+${food?`Groceries on hand: ${food}`:""}
+Search for the best available evidence: clinical guidelines, systematic reviews, randomized trials, and well-documented case reports. Prefer sources like NIH Office of Dietary Supplements, PubMed/PMC, Examine, professional society guidelines, and the tirzepatide prescribing information.
+For each supplement, say whether it makes sense for him, with a clear reason, how and when to take it (including timing around tirzepatide, which slows stomach emptying), and anything that interacts with tirzepatide, keto, or rapid weight loss (for example electrolytes, gallbladder, kidney, low blood sugar). Then suggest what's worth adding for someone in his situation (for example electrolytes on keto, protein, fiber, vitamin D or magnesium if likely low), only where the evidence supports it.
+Be honest about weak evidence. You are not his doctor: put anything that could change a medical decision under cautions for him to raise with his prescriber.
+Respond with only JSON: {"summary": string (two sentences max), "items": [{"name": string, "verdict": "keep" | "ok" | "check" | "skip", "why": string, "how": string (dose/timing), "sources": [{"title": string, "url": string}]}], "add": [{"name": string, "why": string, "how": string, "sources": [{"title": string, "url": string}]}], "cautions": [string]}`;
+  try{ const out=await askClaudeWeb(prompt,12); hv.review={...out,date:today()}; lsSet("lk-supp-review",hv.review);
+    // carry the verdicts back onto the list
+    for(const it of out.items||[]){ const m=sup.find(x=>String(x.name).toLowerCase()===String(it.name).toLowerCase()); if(m&&it.verdict){ const {id,...doc}=m; put(id,{...doc,verdict:it.verdict==="keep"?"great":it.verdict==="skip"?"avoid":it.verdict,why:it.why||m.why}); } }
+  }catch(e){ hv.err=aiError(e); }
+  hv.reviewBusy=false; render();
+}
+$("#camHave").onchange=e=>{ onHavePhotos(e.target.files); e.target.value=""; };
+$("#pickHave").onchange=e=>{ onHavePhotos(e.target.files); e.target.value=""; };
 async function askClaudeWeb(prompt,maxSearches){
   let key=""; try{ key=(localStorage.getItem("lk-api-key")||"").trim(); }catch(e){}
   if(!key) throw {code:"no_key"};
@@ -1893,6 +1986,7 @@ He travels for work (flies out to job sites and stays in hotels). Where he'll be
 ${dayLines}
 ${anyHotel?`Hotel room has: ${roomTxt}. Only plan hotel meals he can actually make or store with that (no cooking without a stovetop or oven; nothing needing a freezer unless there is one; keep fridge items to what fits a ${c.room.includes("bigfridge")?"full-size":"mini"} fridge). ${c.room.includes("gym")?"The hotel has a gym, so lifts can use the hotel swaps (dumbbells, cables, machines).":"No hotel gym is listed, so hotel-day training should be bodyweight, a resistance band, or a walk."}`:""}
 ${c.notes?`His notes: ${c.notes}`:""}
+${haveText()?haveText()+"\nBuild meals around what he already has, work his supplements into the days where timing matters, and leave things he already has off the shopping list. Add a keto-friendly item to the list only if he's missing it.":""}
 Write a short, practical plan for each of these ${ds.length} days, in order: which workout (or rest/cardio), and what to eat (specific foods, protein-first, keto). On flying days, plan around airports and the flight: what to pack in a carry-on and keto-friendly picks at typical airport spots, and keep training light or skip it. On hotel days, use foods that need little or no prep and fit the room.
 ${awayMeals?`MEALS ON THE ROAD: he spends about an hour hunting for food on trips, so take that off his plate.
 ${mealContext(c)}
