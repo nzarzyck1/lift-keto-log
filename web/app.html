@@ -1,31 +1,41 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="13">
+<meta name="app-version" content="14">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#061114">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1522" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 /* Layout: one-column phone logbook, sticky header, fixed bottom tab bar; cards only for the active workout's exercises. */
-/* Look: clinical vital-signs monitor. Deep blue-black glass, phosphor mint traces, mono readouts. Committed dark look in every theme. */
+/* Look: a quiet sanctuary clinic. Warm white paper, deep navy ink, clinical teal for data and actions, liturgical gold for hierarchy. Serif headings, plain sans body, mono readouts. Follows the phone's light or dark setting. */
 :root{
-  --bg:#061114; --surface:#0b1b1f; --sunk:#08161a; --ink:#d9f4ef; --muted:#7c9e9b; --line:#17353a;
-  --accent:#35e6bd; --accent-ink:#022019; --accent-soft:#0d3a33;
-  --protein:#ff8a7a; --carb:#ffc44d; --fat:#7fb0ff; --water:#4fd2ee; --ketone:#d08cff;
-  --good:#4fe08f; --warn:#ffb547; --bad:#ff6363;
-  --grid:rgba(53,230,189,.06);
-  --display:"Chakra Petch","Arial Narrow",system-ui,sans-serif;
+  --bg:#f7f5f0; --surface:#ffffff; --sunk:#f2efe8; --ink:#16213a; --muted:#5d6676; --line:#e5e0d5;
+  --accent:#17707a; --accent-ink:#ffffff; --accent-soft:#e2efee;
+  --gold:#9c7a34; --gold-soft:#f5eedf;
+  --protein:#c0503b; --carb:#b0721a; --fat:#3a68b0; --water:#1a86a8; --ketone:#8a3f9e;
+  --good:#2b7a50; --warn:#a9650e; --bad:#bf3a2d;
+  --shadow:0 1px 2px rgba(22,33,58,.05),0 8px 24px rgba(22,33,58,.06);
+  --display:"Cormorant Garamond","Iowan Old Style",Georgia,serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --tabh:64px; color-scheme:dark;
+  --tabh:64px; color-scheme:light;
 }
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e1522; --surface:#151f30; --sunk:#111a29; --ink:#ece8de; --muted:#9ba4b4; --line:#26324a;
+  --accent:#5cc4c4; --accent-ink:#052a2b; --accent-soft:#163a3d;
+  --gold:#d8b76e; --gold-soft:#2a2516;
+  --protein:#ff8f7f; --carb:#f5c15a; --fat:#8db3ff; --water:#62d0ea; --ketone:#d391ff;
+  --good:#62d197; --warn:#f0ad4e; --bad:#ff6f6f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark;
+}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{background:var(--bg)}
-body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;background-attachment:fixed}
 body{color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));z-index:10;background:var(--bg)}
 .wrap{max-width:640px;margin:0 auto;padding-left:max(16px,max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px)));padding-right:max(16px,max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px)));padding-block:0 calc(var(--tabh) + 32px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
@@ -266,6 +276,54 @@ ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);
 .klevels button.sel{border-color:var(--ketone);box-shadow:inset 0 0 0 1px var(--ketone)}
 .stepsrow{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
 .stepsrow button{flex:none}
+
+/* ---- Sanctuary-clinic finish (overrides the rules above) ---- */
+body{background:radial-gradient(900px 420px at 50% -180px,var(--gold-soft),transparent 70%) no-repeat,var(--bg)}
+header.top{background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding-block:14px 12px;align-items:center}
+h1{font-family:var(--display);font-size:28px;font-weight:600;text-transform:none;letter-spacing:.01em;color:var(--ink);display:flex;align-items:center;gap:10px}
+h1::before{content:"";width:14px;height:14px;margin:0;border-radius:1px;box-shadow:none;animation:none;background:linear-gradient(var(--gold),var(--gold)) center/4px 100% no-repeat,linear-gradient(var(--gold),var(--gold)) center 38%/100% 4px no-repeat}
+h2{font-size:26px;font-weight:600;letter-spacing:0;line-height:1.15}
+h3{font-size:21px}
+.eyebrow,.ro .k,.stat .k{font-family:var(--body);font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.ro .k,.stat .k{color:var(--muted);letter-spacing:.1em}
+button,.btn{border-radius:12px;font-weight:600}
+button.primary{box-shadow:0 1px 0 rgba(255,255,255,.15) inset,0 2px 8px color-mix(in srgb,var(--accent) 30%,transparent)}
+button.big{font-family:var(--body);font-size:17px;letter-spacing:.02em;text-transform:none}
+input,select,textarea{border-radius:10px;background:var(--surface)}
+.panel,.hud,.ex,.nextup{border-radius:16px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow)}
+.hud::before,.hud::after{display:none}
+.hud{border-top:2px solid color-mix(in srgb,var(--gold) 55%,var(--line))}
+.nextup{background:linear-gradient(165deg,var(--gold-soft),var(--surface) 60%);box-shadow:var(--shadow)}
+.nextup .eyebrow{color:var(--gold)}
+.nextup h2{font-size:42px;text-transform:none;font-weight:600}
+.ex.done{border-color:var(--accent)}
+.ex .rx,.plan-list .rx{font-family:var(--body);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-variant-numeric:lining-nums}
+.setrow .n{font-family:var(--mono);font-size:16px}
+.bar .lab b,.kcal b,.water b{font-family:var(--mono);font-size:18px;font-weight:600}
+.stat .v{font-family:var(--mono);font-size:22px;font-weight:600}
+.readouts{border-radius:12px;background:var(--line)}
+.ro{background:var(--surface);padding:10px 9px}
+.ro .k{font-size:10.5px}
+th{font-family:var(--body);font-size:12px;letter-spacing:.08em}
+.tag{border-radius:999px;font-family:var(--body);font-weight:600;font-size:11px;letter-spacing:.08em;background:color-mix(in srgb,currentColor 9%,transparent);border-color:color-mix(in srgb,currentColor 35%,transparent)}
+.tag i{box-shadow:none}
+.chart .ln{filter:none}
+.empty{border-radius:14px}
+.banner,.hint{border-radius:12px}
+.phase{background:var(--gold-soft);color:var(--gold)}
+.sheet{background:var(--bg);border-radius:22px 22px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.15)}
+.scrim{background:rgba(14,21,34,.42)}
+.meal,.psetup,.swaps{border-radius:12px}
+.pday{border-left-color:var(--accent)}
+.pday.away{border-left-color:var(--gold)} .where{color:var(--gold)}
+ul.tips li::before{content:"+";color:var(--gold)}
+.toast{background:var(--ink);color:var(--bg);font-family:var(--body);font-weight:500;box-shadow:var(--shadow)}
+nav.tabs{background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);box-shadow:0 -4px 20px rgba(22,33,58,.05)}
+nav.tabs button{font-family:var(--body);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:none;gap:3px}
+nav.tabs button svg{width:23px;height:23px}
+nav.tabs button.sel{color:var(--accent);text-shadow:none;box-shadow:inset 0 2px 0 var(--gold)}
+#v-bible{padding-top:6px}
 @media (max-width:380px){.readouts{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){h1::before{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -283,19 +341,1058 @@ ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);
   <section class="view" id="v-train" hidden></section>
   <!-- FOOD -->
   <section class="view" id="v-food" hidden></section>
-  <!-- FIND -->
+  <!-- FIND (retired tab; code kept) -->
   <section class="view" id="v-find" hidden></section>
+  <!-- BIBLE -->
+  <section class="view" id="v-bible" hidden></section>
   <!-- LOG -->
   <section class="view" id="v-log" hidden></section>
   <!-- MORE -->
   <section class="view" id="v-more" hidden></section>
 </div>
 
+<script type="text/plain" id="bibleSrc"><!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bible 365</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Libre+Franklin:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow reading column, like a lectionary page. Today's card first, then a year grid of 365 days. */
+:root {
+  --bg: #f4f5f2;
+  --surface: #ffffff;
+  --ink: #1d2329;
+  --muted: #5d6670;
+  --line: #dde0dc;
+  --rubric: #a61e2a;      /* manuscript rubric red, used sparingly */
+  --done: #2f6b4f;
+  --done-soft: #dcebe2;
+  --cell: #e6e8e4;
+  --f-display: "Cormorant Garamond", "Garamond", "Times New Roman", serif;
+  --f-body: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15191d; --surface: #1d2228; --ink: #e9ebe7; --muted: #9aa3ab; --line: #2e353c;
+    --rubric: #e0646c; --done: #6fbf93; --done-soft: #23382d; --cell: #262c33; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15191d; --surface: #1d2228; --ink: #e9ebe7; --muted: #9aa3ab; --line: #2e353c;
+  --rubric: #e0646c; --done: #6fbf93; --done-soft: #23382d; --cell: #262c33; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 600; font-size: 28px; margin: 0; letter-spacing: .01em; }
+.brand span { color: var(--rubric); }
+.streak { font-size: 13px; color: var(--muted); }
+
+.day-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px 22px; display: grid; gap: 18px; }
+.day-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--rubric); margin: 0; }
+.date { font-family: var(--f-display); font-size: 34px; font-weight: 500; line-height: 1.1; margin: 4px 0 0; text-wrap: balance; }
+.nav { display: flex; gap: 6px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font-size: 18px; line-height: 1; display: grid; place-items: center; }
+.icon-btn:hover { border-color: var(--muted); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+:focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }
+
+.readings { list-style: none; margin: 0; padding: 0; display: grid; }
+.reading { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; padding-block: 14px; border-top: 1px solid var(--line); }
+.reading:first-child { border-top: 0; padding-top: 0; }
+.reading input { appearance: none; width: 22px; height: 22px; margin: 2px 0 0; border: 1.5px solid var(--muted); border-radius: 5px; cursor: pointer; display: grid; place-items: center; background: transparent; }
+.reading input:checked { background: var(--done); border-color: var(--done); }
+.reading input:checked::after { content: ""; width: 6px; height: 11px; border: solid var(--surface); border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.reading label { cursor: pointer; min-width: 0; }
+.track { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.passage { display: block; font-family: var(--f-display); font-size: 24px; font-weight: 600; line-height: 1.25; }
+.reading input:checked + label .passage { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.day-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.status { font-size: 13px; color: var(--muted); }
+.status.complete { color: var(--done); font-weight: 600; }
+.text-btn { background: none; border: 0; padding: 4px 0; color: var(--rubric); font-weight: 600; font-size: 14px; }
+.text-btn:hover { text-decoration: underline; }
+
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+h2 { font-family: var(--f-display); font-size: 22px; font-weight: 600; margin: 0; }
+.count { font-family: var(--f-mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--cell); overflow: hidden; margin-bottom: 14px; }
+.bar i { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13px, 1fr)); gap: 3px; }
+.cell { aspect-ratio: 1; max-width: 100%; border: 0; border-radius: 2px; background: var(--cell); padding: 0; }
+.cell.partial { background: var(--done-soft); }
+.cell.done { background: var(--done); }
+.cell.today { box-shadow: inset 0 0 0 2px var(--rubric); }
+.cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend b { width: 11px; height: 11px; border-radius: 2px; display: inline-block; background: var(--cell); }
+
+details { border-top: 1px solid var(--line); padding-top: 16px; }
+summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.settings { display: grid; gap: 12px; margin-top: 14px; font-size: 14px; color: var(--muted); }
+.settings label { display: grid; gap: 6px; color: var(--ink); font-weight: 500; }
+.settings input[type=date] { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); max-width: 220px; }
+.confirm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.danger { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: 13px; }
+.danger.armed { border-color: var(--rubric); color: var(--rubric); }
+p.note { margin: 0; max-width: 65ch; }
+.plan-name { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
+.rest { font-family: var(--f-display); font-size: 22px; line-height: 1.35; margin: 0; }
+.cell.restday { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+
+.moments { display: grid; gap: 14px; }
+.moments p.lede { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 14px; }
+.chip:hover { border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.moment-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; display: grid; gap: 14px; }
+.moment-card h3 { font-family: var(--f-display); font-size: 24px; font-weight: 600; margin: 0; }
+.moment-card .how { margin: 0; font-size: 14px; color: var(--muted); max-width: 60ch; }
+.verses { list-style: none; margin: 0; padding: 0; display: grid; }
+.verses li { display: grid; gap: 2px; padding-block: 10px; border-top: 1px solid var(--line); }
+.verses li:first-child { border-top: 0; padding-top: 0; }
+.ref { font-family: var(--f-display); font-size: 20px; font-weight: 600; }
+.why { font-size: 14px; color: var(--muted); }
+
+.plans { display: grid; gap: 8px; }
+.plan-opt { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--surface); cursor: pointer; }
+.plan-opt:has(input:checked) { border-color: var(--rubric); }
+.plan-opt input { margin: 3px 0 0; accent-color: var(--rubric); }
+.plan-opt b { display: block; color: var(--ink); font-weight: 600; }
+.plan-opt span { font-weight: 400; color: var(--muted); font-size: 13px; }
+.settings .field-label { color: var(--ink); font-weight: 500; }
+.times { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.times li { display: grid; grid-template-columns: 84px 1fr; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); align-items: baseline; }
+.times li:first-child { border-top: 0; }
+.times .when { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--rubric); }
+.times .what { display: grid; gap: 1px; min-width: 0; }
+.times button { justify-self: start; background: none; border: 0; padding: 2px 0 0; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.search { font: inherit; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.cat-chip { font-size: 13px; padding: 4px 11px; border: 0; background: transparent; color: var(--muted); border-radius: 999px; }
+.cat-chip[aria-pressed="true"] { background: var(--cell); color: var(--ink); font-weight: 600; }
+.sub { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--rubric); margin: 0 0 6px; }
+.reflect { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.reflect p { margin: 0; font-size: 14px; max-width: 60ch; }
+.reflect .q { font-family: var(--f-display); font-size: 19px; font-style: italic; line-height: 1.35; }
+.all summary { font-size: 13px; font-weight: 500; color: var(--muted); }
+.all .verses { margin-top: 10px; }
+.quick { border-top: 0; padding-top: 0; }
+.quick-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 14px; }
+.quick-table td { padding: 7px 0; border-top: 1px solid var(--line); vertical-align: baseline; }
+.quick-table td:first-child { color: var(--muted); padding-right: 12px; }
+.quick-table td:last-child { font-family: var(--f-display); font-size: 17px; font-weight: 600; text-align: right; white-space: nowrap; }
+.quick-table button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; }
+.quick-table button:hover { color: var(--ink); text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 class="brand">Bible <span>365</span></h1>
+    <div class="streak" id="streak"></div>
+  </header>
+
+  <section class="day-card" aria-live="polite">
+    <div class="day-top">
+      <div>
+        <p class="eyebrow" id="dayLabel">Day 1 of 365</p>
+        <p class="date" id="dateLabel">Today</p>
+        <p class="plan-name" id="planName"></p>
+      </div>
+      <div class="nav">
+        <button class="icon-btn" id="prev" aria-label="Previous day">‹</button>
+        <button class="icon-btn" id="next" aria-label="Next day">›</button>
+      </div>
+    </div>
+    <ul class="readings" id="readings"></ul>
+    <div class="day-foot">
+      <span class="status" id="status"></span>
+      <button class="text-btn" id="toToday" hidden>Back to today</button>
+    </div>
+  </section>
+
+  <section class="moments" aria-labelledby="todayVersesTitle">
+    <div class="section-head">
+      <h2 id="todayVersesTitle">Verses for today</h2>
+      <span class="count">New ones tomorrow</span>
+    </div>
+    <ul class="times" id="times"></ul>
+  </section>
+
+  <section class="moments" aria-labelledby="finderTitle">
+    <div>
+      <h2 id="finderTitle">Help finder</h2>
+      <p class="lede">Find passages for how you feel or what you're going through. Each topic shows three picks for today, and the picks change every day.</p>
+    </div>
+    <input type="search" id="finderSearch" class="search" placeholder="Search, e.g. worry, sleep, money, forgive" aria-label="Search topics">
+    <div class="chips" id="catChips" role="group" aria-label="Topic groups"></div>
+    <div class="chips" id="chips" role="group" aria-label="Topics"></div>
+    <p class="lede" id="noMatch" hidden>No topics match that. Try a simpler word like "fear" or "rest".</p>
+    <div class="moment-card" id="momentCard" aria-live="polite"></div>
+    <details class="quick">
+      <summary>Quick help list</summary>
+      <p class="lede">One go-to passage for each situation, so you can turn straight to it.</p>
+      <table class="quick-table"><tbody id="quickList"></tbody></table>
+    </details>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Your year</h2>
+      <span class="count" id="count">0 / 365 days</span>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="grid" id="grid" role="list" aria-label="All 365 days"></div>
+    <div class="legend">
+      <span><b></b>Not started</span>
+      <span><b style="background:var(--done-soft)"></b>Part read</span>
+      <span><b style="background:var(--done)"></b>Finished</span>
+      <span><b style="box-shadow:inset 0 0 0 2px var(--rubric)"></b>Today</span>
+      <span id="restLegend" hidden><b style="background:transparent;box-shadow:inset 0 0 0 1px var(--line)"></b>Catch-up day</span>
+    </div>
+  </section>
+
+  <details id="settingsBox">
+    <summary>Plan settings</summary>
+    <div class="settings">
+      <span class="field-label">Reading plan</span>
+      <div class="plans" id="plans" role="radiogroup" aria-label="Reading plan"></div>
+      <label for="startDate">Day 1 of my plan
+        <input type="date" id="startDate">
+      </label>
+      <p class="note">Each plan keeps its own progress, so you can switch and come back. Progress is saved with your log and syncs to your account when you are signed in.</p>
+      <div class="confirm">
+        <button class="danger" id="reset">Clear progress for this plan</button>
+        <span id="resetHint"></span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+// ---------- Bible data: [book, chapters] ----------
+const OT = [["Genesis",50],["Exodus",40],["Leviticus",27],["Numbers",36],["Deuteronomy",34],["Joshua",24],["Judges",21],["Ruth",4],["1 Samuel",31],["2 Samuel",24],["1 Kings",22],["2 Kings",25],["1 Chronicles",29],["2 Chronicles",36],["Ezra",10],["Nehemiah",13],["Esther",10],["Job",42],["Ecclesiastes",12],["Song of Songs",8],["Isaiah",66],["Jeremiah",52],["Lamentations",5],["Ezekiel",48],["Daniel",12],["Hosea",14],["Joel",3],["Amos",9],["Obadiah",1],["Jonah",4],["Micah",7],["Nahum",3],["Habakkuk",3],["Zephaniah",3],["Haggai",2],["Zechariah",14],["Malachi",4]];
+const WISDOM = [["Psalm",150],["Proverbs",31]];
+const NT = [["Matthew",28],["Mark",16],["Luke",24],["John",21],["Acts",28],["Romans",16],["1 Corinthians",16],["2 Corinthians",13],["Galatians",6],["Ephesians",6],["Philippians",4],["Colossians",4],["1 Thessalonians",5],["2 Thessalonians",3],["1 Timothy",6],["2 Timothy",4],["Titus",3],["Philemon",1],["Hebrews",13],["James",5],["1 Peter",5],["2 Peter",3],["1 John",5],["2 John",1],["3 John",1],["Jude",1],["Revelation",22]];
+const CH = Object.fromEntries([...OT, ...WISDOM, ...NT]);
+const books = names => names.map(n => [n, CH[n]]);
+const DAYS = 365;
+// Canonical order (Psalms and Proverbs back in their place)
+const CANON = [...OT.slice(0, 18), ...WISDOM, ...OT.slice(18), ...NT];
+// Roughly the order the events happened or the books were written (book level, my own arrangement)
+const CHRONO = books(["Genesis","Job","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","Psalm","1 Chronicles","1 Kings","Proverbs","Ecclesiastes","Song of Songs","2 Chronicles","2 Kings","Jonah","Amos","Hosea","Micah","Isaiah","Nahum","Zephaniah","Habakkuk","Joel","Jeremiah","Lamentations","Obadiah","Ezekiel","Daniel","Ezra","Haggai","Zechariah","Esther","Nehemiah","Malachi","Matthew","Mark","Luke","John","Acts","James","Galatians","1 Thessalonians","2 Thessalonians","1 Corinthians","2 Corinthians","Romans","Ephesians","Philippians","Colossians","Philemon","1 Timothy","Titus","1 Peter","2 Timothy","2 Peter","Hebrews","Jude","1 John","2 John","3 John","Revelation"]);
+
+function flatten(bks, key) {
+  const out = [];
+  for (const [b, n] of bks) for (let c = 1; c <= n; c++) out.push({ b, c, key });
+  return out;
+}
+function describe(chs) {
+  const groups = [];
+  for (const x of chs) {
+    const g = groups[groups.length - 1];
+    if (g && g.b === x.b && x.c === g.to + 1) g.to = x.c; else groups.push({ b: x.b, from: x.c, to: x.c });
+  }
+  return groups.map(g => {
+    const name = g.b === "Psalm" && g.from !== g.to ? "Psalms" : g.b;
+    return g.from === g.to ? `${name} ${g.from}` : `${name} ${g.from}–${g.to}`;
+  }).join("; ");
+}
+// Weave two lists together in proportion, so both run start to finish together
+function weave(a, b) {
+  const out = []; let i = 0, j = 0;
+  while (i < a.length || j < b.length) {
+    if (j >= b.length || (i < a.length && (i + .5) / a.length <= (j + .5) / b.length)) out.push(a[i++]);
+    else out.push(b[j++]);
+  }
+  return out;
+}
+
+// ---------- Plans ----------
+// Each plan: streams of chapters, each spread evenly over its reading days.
+const PLANS = {
+  balanced: {
+    name: "Balanced",
+    blurb: "About 2 chapters of the Old Testament plus 1 from the New Testament, Psalms or Proverbs each day. Like the classic multi-track plans, you read from both Testaments daily.",
+    streams: () => [flatten(OT, "ot"), weave(flatten(NT, "nt"), flatten(WISDOM, "ps"))],
+    labels: { ot: "Old Testament", ps: "Psalms & Proverbs", nt: "New Testament" },
+  },
+  chrono: {
+    name: "Chronological",
+    blurb: "The whole Bible roughly in the order events happened. Job sits with the patriarchs, Psalms with David, and the prophets with the kings they spoke to. About 3 chapters a day.",
+    streams: () => [flatten(CHRONO, "all")],
+    labels: { all: "Today's reading" },
+  },
+  cover: {
+    name: "Cover to Cover",
+    blurb: "Genesis to Revelation in Bible order, 6 days a week. Sundays are left free to catch up or reflect, so missing a day doesn't knock you off. About 4 chapters a day.",
+    streams: () => [flatten(CANON, "all")],
+    labels: { all: "Today's reading" },
+    restWeekday: 0, // Sunday
+  },
+};
+
+// ---------- Storage (per-browser) ----------
+const KEY = "bible365.v1";
+const today0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const fromIso = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+function load() {
+  try { const B = parent && parent.BIBLE_BRIDGE; if (B) { const s = B.get(); if (s && typeof s === "object") return JSON.parse(JSON.stringify(s)); } } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === "object") return s; } catch (e) {}
+  return null;
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} try { parent.BIBLE_BRIDGE && parent.BIBLE_BRIDGE.set(JSON.parse(JSON.stringify(state))); } catch (e) {} }
+// A new reader starts Day 1 on the day they first open the app; they can change it in Plan settings.
+let state = load() || { start: iso(today0()) };
+state.plan = PLANS[state.plan] ? state.plan : "balanced";
+state.progress = state.progress || { balanced: state.done || {} };
+delete state.done;
+for (const k in PLANS) state.progress[k] = state.progress[k] || {};
+state.moment = state.moment || "bedtime";
+save();
+
+// ---------- Help finder: a topical index for times of day, feelings and life situations ----------
+// Each topic: the first passage is its "quick help" pick; the rest rotate daily.
+// References only (read them in your own Bible); the notes are my own one-line summaries.
+const CATS = [
+  { key: "time", name: "Times of day" },
+  { key: "feel", name: "When you feel…" },
+  { key: "life", name: "Life situations" },
+  { key: "people", name: "Relationships" },
+  { key: "faith", name: "Growing in faith" },
+];
+const TOPICS = [
+  // ---- Times of day
+  { key: "morning", cat: "time", name: "Morning", ask: "What is one thing today you want to do with God rather than on your own?", how: "Read before you check your phone. Carry one line of it into the day.", v: [
+    ["Lamentations 3:22–23", "His mercies are new every morning"],
+    ["Psalm 5:1–3", "Laying your requests before God and waiting"],
+    ["Psalm 143:8", "Hear of God's love in the morning; show me the way"],
+    ["Psalm 118:24", "This is the day the Lord has made"],
+    ["Mark 1:35", "Jesus got up while it was still dark to pray"],
+    ["Isaiah 50:4", "Wakened morning by morning to listen"],
+    ["Psalm 90:14", "Satisfy us in the morning with your love"],
+    ["Psalm 59:16", "Singing of God's love in the morning"],
+    ["Colossians 3:23–24", "Work at everything as for the Lord"],
+    ["Proverbs 16:3", "Commit your plans to the Lord"],
+    ["Matthew 6:9–13", "The Lord's Prayer"],
+    ["Psalm 57:7–11", "I will awaken the dawn with praise"] ] },
+  { key: "midday", cat: "time", name: "Midday pause", ask: "Where has your attention drifted since this morning?", how: "Stop for two minutes. Read one passage, breathe, and reset before the afternoon.", v: [
+    ["Psalm 55:16–17", "Evening, morning and noon I cry out, and he hears"],
+    ["Matthew 11:28–30", "Come to me, all who are weary"],
+    ["Psalm 46:1–3", "A very present help in trouble"],
+    ["Isaiah 26:3", "Perfect peace for a steadfast mind"],
+    ["Philippians 4:4–7", "Rejoice, don't be anxious, and pray about everything"],
+    ["Psalm 16:7–8", "With God at my right hand I will not be shaken"],
+    ["Galatians 6:9", "Don't grow weary of doing good"],
+    ["Daniel 6:10", "Daniel kept his habit of praying three times a day"],
+    ["Psalm 62:1–2", "My soul finds rest in God alone"],
+    ["John 15:4–5", "Remain in me, and you will bear fruit"] ] },
+  { key: "evening", cat: "time", name: "Evening", ask: "Where did you see God at work today, and where do you need forgiveness?", how: "Look back over the day: thank God for one thing, confess one thing, release one thing.", v: [
+    ["Psalm 141:2", "Let my prayer rise like the evening offering"],
+    ["Psalm 92:1–4", "Declaring God's faithfulness every night"],
+    ["Psalm 139:23–24", "Search me, God, and know my heart"],
+    ["Ephesians 4:26", "Don't let the sun go down on your anger"],
+    ["Psalm 16:7", "Even at night my heart instructs me"],
+    ["Luke 24:28–32", "Stay with us, for it is nearly evening"],
+    ["Psalm 103:1–5", "Forget not all his benefits"],
+    ["1 John 1:9", "He is faithful to forgive"],
+    ["Psalm 42:8", "His song is with me in the night"],
+    ["Psalm 30:5", "Weeping may last for the night, but joy comes in the morning"] ] },
+  { key: "bedtime", cat: "time", name: "Bedtime", ask: "What can you hand over to God so you don't have to carry it to sleep?", how: "Read one slowly with the lights low. Let it be the last thing on your mind.", v: [
+    ["Psalm 4:8", "I lie down in peace, for you keep me safe"],
+    ["Psalm 121", "He who watches over you will not sleep"],
+    ["Proverbs 3:24", "When you lie down, your sleep will be sweet"],
+    ["Psalm 3:5", "I lie down and wake again, because the Lord sustains me"],
+    ["Psalm 63:6–8", "Remembering God through the watches of the night"],
+    ["Psalm 91:1–6", "Resting in the shadow of the Almighty"],
+    ["Psalm 127:2", "He gives sleep to those he loves"],
+    ["Psalm 23", "The Lord is my shepherd"],
+    ["Isaiah 26:3–4", "Perfect peace for those who trust him"],
+    ["Psalm 131", "Like a weaned child resting with its mother"],
+    ["Matthew 8:23–27", "Jesus asleep in the storm"],
+    ["Psalm 134", "Praising the Lord in the night"] ] },
+  { key: "sabbath", cat: "time", name: "Day of rest", ask: "What would rest that actually refreshes you look like today?", how: "Read one, then plan something restful that doesn't involve a screen.", v: [
+    ["Exodus 20:8–11", "Remember the Sabbath day"],
+    ["Mark 2:27", "The Sabbath was made for people"],
+    ["Hebrews 4:9–11", "A Sabbath rest remains for God's people"],
+    ["Psalm 92", "A song for the Sabbath day"],
+    ["Isaiah 58:13–14", "Calling the Sabbath a delight"],
+    ["Genesis 2:1–3", "God rested on the seventh day"],
+    ["Mark 6:30–32", "Come away to a quiet place and rest"],
+    ["Psalm 95:1–7", "Come, let us worship and bow down"] ] },
+
+  // ---- Feelings
+  { key: "anxious", cat: "feel", name: "Anxious", ask: "What exactly are you worried will happen? Name it to God plainly.", how: "Read one out loud if you can, slowly, with a breath between sentences.", v: [
+    ["Philippians 4:6–7", "Pray about everything, and peace will guard your heart"],
+    ["1 Peter 5:6–7", "Cast all your anxiety on him because he cares for you"],
+    ["Matthew 6:25–34", "Don't worry about tomorrow"],
+    ["Psalm 94:19", "When anxiety was great, your comfort brought me joy"],
+    ["Isaiah 41:10", "Do not fear, for I am with you"],
+    ["John 14:1–3", "Do not let your hearts be troubled"],
+    ["Psalm 55:22", "Cast your burden on the Lord"],
+    ["Luke 12:22–26", "Who by worrying can add an hour to life?"],
+    ["Psalm 139:23", "Search me and know my anxious thoughts"],
+    ["Proverbs 12:25", "Anxiety weighs the heart down; a kind word cheers it"],
+    ["John 14:27", "Peace I leave with you"],
+    ["2 Thessalonians 3:16", "The Lord of peace give you peace at all times"] ] },
+  { key: "afraid", cat: "feel", name: "Afraid", ask: "If God is truly with you in this, what changes?", how: "Read one, then repeat its key line whenever the fear comes back.", v: [
+    ["Psalm 27:1", "The Lord is my light; whom shall I fear?"],
+    ["Isaiah 41:10", "I will strengthen you and help you"],
+    ["Psalm 56:3–4", "When I am afraid, I put my trust in you"],
+    ["Isaiah 43:1–3", "When you pass through the waters, I will be with you"],
+    ["Deuteronomy 31:6", "Be strong and courageous; he will not leave you"],
+    ["Joshua 1:9", "Do not be afraid, for the Lord is with you wherever you go"],
+    ["Psalm 34:4", "He delivered me from all my fears"],
+    ["2 Timothy 1:7", "Not a spirit of fear, but of power, love and self-control"],
+    ["Psalm 46", "We will not fear, though the earth give way"],
+    ["Psalm 91", "Shelter of the Most High"],
+    ["Mark 4:35–41", "Jesus calms the storm"],
+    ["1 John 4:18", "Perfect love drives out fear"] ] },
+  { key: "overwhelmed", cat: "feel", name: "Stressed or overwhelmed", ask: "What is the one next thing you actually need to do?", how: "Read one, write down what you're carrying, then pick the single next step.", v: [
+    ["Matthew 11:28–30", "Come to me, all who are weary and burdened"],
+    ["Psalm 61:1–4", "Lead me to the rock that is higher than I"],
+    ["2 Corinthians 4:7–9", "Hard pressed on every side, but not crushed"],
+    ["Psalm 18:1–6", "In my distress I called to the Lord"],
+    ["Exodus 18:13–23", "Jethro tells Moses he can't carry it all alone"],
+    ["Luke 10:38–42", "Martha, you are worried about many things"],
+    ["Psalm 142", "When my spirit grows faint, you know my way"],
+    ["Isaiah 40:28–31", "He gives strength to the weary"],
+    ["Psalm 46:10", "Be still, and know that I am God"],
+    ["Mark 6:30–32", "Come away and rest a while"] ] },
+  { key: "sad", cat: "feel", name: "Sad or depressed", ask: "Can you tell God honestly how you feel, the way the psalmists did?", how: "There's no need to feel better first. Read slowly, and it's fine to just sit with it. If the darkness is heavy or lasting, please talk to someone you trust or a doctor too.", v: [
+    ["Psalm 42", "Why so downcast, O my soul? Put your hope in God"],
+    ["Psalm 34:18", "The Lord is close to the brokenhearted"],
+    ["Psalm 40:1–3", "He lifted me out of the slimy pit"],
+    ["1 Kings 19:1–8", "God cares for Elijah with sleep and food"],
+    ["Psalm 13", "How long, O Lord? Yet I trust in your love"],
+    ["Psalm 88", "A prayer from deep darkness"],
+    ["Isaiah 61:1–3", "A garment of praise instead of a spirit of despair"],
+    ["Psalm 147:3", "He heals the brokenhearted"],
+    ["Lamentations 3:19–26", "Yet this I call to mind, and therefore I have hope"],
+    ["Romans 8:26", "The Spirit prays for us when we don't have words"],
+    ["Matthew 26:36–39", "Jesus overwhelmed with sorrow in Gethsemane"],
+    ["Psalm 30", "You turned my mourning into dancing"] ] },
+  { key: "angry", cat: "feel", name: "Angry", ask: "What is underneath the anger: hurt, fear, or a sense of injustice?", how: "Read one before you say or send anything. Wait until the first wave passes.", v: [
+    ["James 1:19–20", "Quick to listen, slow to speak, slow to anger"],
+    ["Ephesians 4:26–27", "In your anger do not sin"],
+    ["Proverbs 15:1", "A gentle answer turns away wrath"],
+    ["Psalm 37:1–8", "Refrain from anger and turn from wrath"],
+    ["Proverbs 29:11", "A fool vents his anger; the wise hold it back"],
+    ["Ephesians 4:31–32", "Be kind and compassionate, forgiving each other"],
+    ["Romans 12:17–21", "Do not repay evil for evil"],
+    ["Proverbs 14:29", "Patience shows great understanding"],
+    ["Jonah 4", "God asks Jonah, Is it right for you to be angry?"],
+    ["Psalm 4:4", "Tremble and do not sin; search your heart and be silent"] ] },
+  { key: "lonely", cat: "feel", name: "Lonely", ask: "Who is one person you could reach out to today?", how: "Read one, then send one message to someone, even a short one.", v: [
+    ["Deuteronomy 31:8", "He will never leave you nor forsake you"],
+    ["Psalm 139:7–12", "Where can I go from your presence?"],
+    ["Romans 8:38–39", "Nothing can separate us from the love of God"],
+    ["Psalm 68:5–6", "God sets the lonely in families"],
+    ["Matthew 28:20", "I am with you always"],
+    ["Hebrews 13:5–6", "The Lord is my helper"],
+    ["Psalm 25:16–18", "Turn to me, for I am lonely and afflicted"],
+    ["Isaiah 49:15–16", "I have engraved you on the palms of my hands"],
+    ["John 15:13–15", "I have called you friends"],
+    ["2 Timothy 4:16–17", "Everyone deserted me, but the Lord stood by me"],
+    ["Ecclesiastes 4:9–12", "Two are better than one"] ] },
+  { key: "discouraged", cat: "feel", name: "Discouraged", ask: "What has God already brought you through?", how: "Read one, then write down one past time things turned out better than you feared.", v: [
+    ["Galatians 6:9", "We will reap a harvest if we do not give up"],
+    ["Isaiah 40:28–31", "They will soar on wings like eagles"],
+    ["2 Corinthians 4:16–18", "We do not lose heart"],
+    ["Philippians 1:6", "He who began a good work will carry it on"],
+    ["Psalm 73:23–26", "God is the strength of my heart"],
+    ["Hebrews 12:1–3", "Run with endurance, eyes fixed on Jesus"],
+    ["Romans 8:28", "In all things God works for the good"],
+    ["Joshua 1:9", "Be strong and courageous"],
+    ["Habakkuk 3:17–19", "Though the fig tree does not bud, yet I will rejoice"],
+    ["Psalm 27:13–14", "Wait for the Lord; take heart"] ] },
+  { key: "tired", cat: "feel", name: "Tired or worn out", ask: "Is this a body that needs sleep, or a soul that needs rest? Maybe both?", how: "Read one, then name one thing today you can leave in God's hands.", v: [
+    ["Isaiah 40:29–31", "He gives power to the faint"],
+    ["Matthew 11:28–30", "I will give you rest"],
+    ["2 Corinthians 12:9–10", "My power is made perfect in weakness"],
+    ["Psalm 73:26", "My flesh and heart may fail, but God is my strength"],
+    ["Nehemiah 8:10", "The joy of the Lord is your strength"],
+    ["1 Kings 19:3–8", "Get up and eat, for the journey is too much for you"],
+    ["Psalm 23:1–3", "He makes me lie down; he refreshes my soul"],
+    ["Psalm 18:28–33", "God arms me with strength"],
+    ["Philippians 4:12–13", "I can do all this through him who gives me strength"],
+    ["Psalm 127:1–2", "Rising early and staying up late is in vain"] ] },
+  { key: "guilty", cat: "feel", name: "Guilty or ashamed", ask: "Is there anything you need to confess to God or make right with someone?", how: "Read one honestly. Say what you did, and then accept that you're forgiven.", v: [
+    ["1 John 1:9", "If we confess, he is faithful to forgive"],
+    ["Psalm 51:1–12", "Create in me a clean heart"],
+    ["Romans 8:1–2", "No condemnation for those in Christ Jesus"],
+    ["Psalm 103:8–12", "As far as the east is from the west"],
+    ["Micah 7:18–19", "Our sins hurled into the depths of the sea"],
+    ["Psalm 32:1–5", "When I kept silent, my bones wasted away; then I confessed"],
+    ["Isaiah 1:18", "Though your sins are like scarlet, they shall be white as snow"],
+    ["Luke 15:11–24", "The father runs to meet his son"],
+    ["John 8:1–11", "Neither do I condemn you; go and sin no more"],
+    ["John 21:15–19", "Jesus restores Peter after his denial"],
+    ["Hebrews 4:14–16", "Approach the throne of grace with confidence"] ] },
+  { key: "jealous", cat: "feel", name: "Jealous or discontent", ask: "What do you already have that you'd hate to lose?", how: "Read one, then thank God for three things you have.", v: [
+    ["Philippians 4:11–13", "I have learned to be content in any situation"],
+    ["Hebrews 13:5", "Keep free from the love of money; be content"],
+    ["Psalm 73", "Envying the prosperous, until I entered God's sanctuary"],
+    ["1 Timothy 6:6–8", "Godliness with contentment is great gain"],
+    ["Proverbs 14:30", "Envy rots the bones"],
+    ["James 3:13–18", "Where there is envy, there is disorder"],
+    ["Galatians 6:4–5", "Test your own work, without comparing"],
+    ["Psalm 37:1–7", "Do not fret because of those who prosper"],
+    ["John 21:20–22", "What is that to you? You follow me"] ] },
+  { key: "doubt", cat: "feel", name: "Doubting", ask: "What question would you ask God if you could?", how: "Doubt is not the opposite of faith. Read one and bring your real questions to God.", v: [
+    ["Mark 9:21–24", "I believe; help my unbelief"],
+    ["John 20:24–29", "Jesus meets Thomas in his doubt"],
+    ["Psalm 73:16–17", "Hard to understand, until I went into God's sanctuary"],
+    ["Hebrews 11:1–6", "Faith is confidence in what we hope for"],
+    ["Matthew 11:2–6", "John the Baptist asks, Are you the one?"],
+    ["Isaiah 55:8–9", "My thoughts are not your thoughts"],
+    ["Jude 1:22", "Be merciful to those who doubt"],
+    ["Habakkuk 1:2–4", "How long, Lord, must I call for help?"],
+    ["Job 38:1–11", "God answers Job out of the storm"],
+    ["John 6:66–69", "Lord, to whom shall we go?"] ] },
+  { key: "impatient", cat: "feel", name: "Impatient", ask: "What might God be doing in you while you wait?", how: "Read one, and treat the wait as part of the work, not a pause from it.", v: [
+    ["Psalm 27:14", "Wait for the Lord; be strong and take heart"],
+    ["Isaiah 40:31", "Those who wait on the Lord renew their strength"],
+    ["Lamentations 3:25–26", "It is good to wait quietly"],
+    ["Psalm 37:7", "Be still before the Lord and wait patiently"],
+    ["James 5:7–8", "Like a farmer waiting for the rain"],
+    ["Romans 8:24–25", "We wait for it patiently"],
+    ["Habakkuk 2:3", "Though it lingers, wait for it"],
+    ["Ecclesiastes 3:1–8", "A time for everything"],
+    ["Galatians 5:22–23", "The fruit of the Spirit includes patience"] ] },
+  { key: "grateful", cat: "feel", name: "Grateful", ask: "What is a gift from this week you almost overlooked?", how: "Read one, then write down three specific things you're thankful for.", v: [
+    ["Psalm 100", "Enter his gates with thanksgiving"],
+    ["Psalm 103:1–5", "Forget not all his benefits"],
+    ["1 Thessalonians 5:16–18", "Give thanks in all circumstances"],
+    ["James 1:17", "Every good and perfect gift is from above"],
+    ["Psalm 136", "His love endures forever"],
+    ["Colossians 3:15–17", "Be thankful"],
+    ["Luke 17:11–19", "One of ten healed men came back to say thank you"],
+    ["Psalm 107:1–9", "Let the redeemed of the Lord tell their story"],
+    ["Psalm 9:1–2", "I will tell of all your wonderful deeds"],
+    ["Ephesians 1:3–8", "Every spiritual blessing in Christ"] ] },
+  { key: "joyful", cat: "feel", name: "Happy or celebrating", ask: "How can you share this good thing with someone else?", how: "Read one and turn the happiness into praise.", v: [
+    ["Psalm 16:11", "In your presence is fullness of joy"],
+    ["Philippians 4:4", "Rejoice in the Lord always"],
+    ["Psalm 126", "Our mouths were filled with laughter"],
+    ["Zephaniah 3:17", "He will rejoice over you with singing"],
+    ["Psalm 150", "Let everything that has breath praise the Lord"],
+    ["Nehemiah 8:10–12", "Go and celebrate, and share with others"],
+    ["John 15:9–11", "That my joy may be in you"],
+    ["Luke 15:3–7", "Rejoice with me; I found my lost sheep"],
+    ["Psalm 118:24", "Let us rejoice and be glad in it"] ] },
+
+  // ---- Life situations
+  { key: "grief", cat: "life", name: "Grieving a loss", ask: "What do you miss most? You can tell God that directly.", how: "One passage is enough. It's fine to just sit with it.", v: [
+    ["Psalm 34:18", "Close to the brokenhearted"],
+    ["Matthew 5:4", "Blessed are those who mourn"],
+    ["John 11:17–36", "Jesus wept at his friend's tomb"],
+    ["2 Corinthians 1:3–4", "The God of all comfort"],
+    ["Revelation 21:1–5", "No more death or mourning or crying"],
+    ["1 Thessalonians 4:13–18", "We do not grieve like those without hope"],
+    ["John 14:1–3", "In my Father's house are many rooms"],
+    ["Psalm 23", "Even though I walk through the darkest valley"],
+    ["Ecclesiastes 3:1–4", "A time to weep and a time to laugh"],
+    ["Romans 8:18", "Present suffering and future glory"],
+    ["1 Corinthians 15:51–57", "Where, O death, is your sting?"],
+    ["Psalm 116", "Precious in the sight of the Lord"] ] },
+  { key: "sick", cat: "life", name: "Sick or in pain", ask: "What would you like to ask God for, plainly, today?", how: "Read one, pray for healing honestly, and ask someone to pray with you.", v: [
+    ["Psalm 41:1–3", "The Lord sustains them on their sickbed"],
+    ["James 5:13–16", "Is anyone among you sick? Call for prayer"],
+    ["2 Corinthians 12:7–10", "My grace is sufficient for you"],
+    ["Psalm 6", "Have mercy on me, Lord, for I am faint"],
+    ["Isaiah 53:3–5", "By his wounds we are healed"],
+    ["Mark 5:24–34", "The woman who touched Jesus' cloak"],
+    ["Romans 8:18–23", "Creation groans, waiting for redemption"],
+    ["2 Corinthians 4:16–18", "Outwardly wasting away, inwardly renewed"],
+    ["Psalm 103:1–5", "Who heals all your diseases"],
+    ["Revelation 21:4", "No more pain"] ] },
+  { key: "decision", cat: "life", name: "Making a decision", ask: "Which choice would you make if you weren't afraid?", how: "Read one before you decide. Ask for wisdom, then take the next small step.", v: [
+    ["Proverbs 3:5–6", "He will make your paths straight"],
+    ["James 1:5–6", "Ask God for wisdom"],
+    ["Psalm 32:8", "I will instruct you and teach you the way"],
+    ["Romans 12:1–2", "Test and approve what God's will is"],
+    ["Proverbs 16:9", "We plan our course, but the Lord establishes our steps"],
+    ["Isaiah 30:21", "This is the way; walk in it"],
+    ["Proverbs 15:22", "Plans succeed with many advisers"],
+    ["Psalm 25:4–5", "Show me your ways, Lord"],
+    ["Colossians 3:15", "Let the peace of Christ rule in your hearts"],
+    ["Acts 15:28", "It seemed good to the Holy Spirit and to us"] ] },
+  { key: "temptation", cat: "life", name: "Facing temptation", ask: "What usually comes right before you give in? Plan for that moment.", how: "Read one now, and keep its reference handy for the moment it gets hard.", v: [
+    ["1 Corinthians 10:13", "God will provide a way out"],
+    ["James 1:12–15", "Blessed is the one who perseveres under trial"],
+    ["Matthew 4:1–11", "Jesus answers temptation with Scripture"],
+    ["Hebrews 4:15–16", "Jesus was tempted in every way, yet without sin"],
+    ["Galatians 5:16–25", "Walk by the Spirit"],
+    ["Psalm 119:9–11", "I have hidden your word in my heart"],
+    ["Genesis 39:6–12", "Joseph runs from temptation"],
+    ["2 Timothy 2:22", "Flee and pursue righteousness with others"],
+    ["Matthew 26:41", "Watch and pray"],
+    ["Romans 6:11–14", "Sin shall no longer be your master"] ] },
+  { key: "money", cat: "life", name: "Money worries", ask: "What would trusting God with your money look like this week?", how: "Read one, then take one practical step: a budget, a call, or asking for help.", v: [
+    ["Matthew 6:25–34", "Seek first his kingdom, and these things will be given"],
+    ["Philippians 4:19", "God will meet all your needs"],
+    ["Hebrews 13:5", "Be content; I will never leave you"],
+    ["Proverbs 3:9–10", "Honor the Lord with your wealth"],
+    ["1 Timothy 6:6–10", "The love of money is a root of evil"],
+    ["Psalm 37:25", "I have never seen the righteous forsaken"],
+    ["Proverbs 21:5", "Diligent plans lead to profit"],
+    ["Luke 12:13–21", "The rich fool who built bigger barns"],
+    ["2 Corinthians 9:6–11", "God loves a cheerful giver"],
+    ["Proverbs 30:7–9", "Give me neither poverty nor riches"] ] },
+  { key: "work", cat: "life", name: "Work or job stress", ask: "Who are you really working for?", how: "Read one before you start work, and pray for the people you work with.", v: [
+    ["Colossians 3:23–24", "Work as for the Lord"],
+    ["Psalm 90:17", "Establish the work of our hands"],
+    ["Proverbs 16:3", "Commit your work to the Lord"],
+    ["Ecclesiastes 2:24–25", "Finding satisfaction in your work"],
+    ["Genesis 2:15", "Work was part of God's good design"],
+    ["Matthew 5:13–16", "Salt and light where you are"],
+    ["Galatians 6:9", "Don't grow weary in doing good"],
+    ["Daniel 6:1–5", "Daniel's faithfulness at work"],
+    ["Psalm 127:1–2", "Unless the Lord builds the house"],
+    ["1 Thessalonians 4:11–12", "Lead a quiet life and work with your hands"] ] },
+  { key: "lostjob", cat: "life", name: "Lost a job or plans fell through", ask: "What is still true about God, even with this loss?", how: "Read one, and let it steady you before you plan the next step.", v: [
+    ["Jeremiah 29:11–13", "Plans to give you hope and a future"],
+    ["Romans 8:28", "God works in all things for good"],
+    ["Proverbs 16:9", "The Lord establishes our steps"],
+    ["Genesis 50:19–20", "You meant it for harm; God meant it for good"],
+    ["Psalm 37:3–5", "Trust in the Lord and do good"],
+    ["Isaiah 43:18–19", "See, I am doing a new thing"],
+    ["Philippians 4:12–13", "Content in plenty and in want"],
+    ["Ruth 1:16–22", "Naomi returns home empty, but not alone"],
+    ["Habakkuk 3:17–19", "Yet I will rejoice in the Lord"] ] },
+  { key: "newstart", cat: "life", name: "Starting something new", ask: "What do you hope God will do through this new season?", how: "Read one and dedicate the new start to God in a short prayer.", v: [
+    ["Joshua 1:6–9", "Be strong and courageous as you go in"],
+    ["Isaiah 43:18–19", "Forget the former things; I am doing a new thing"],
+    ["Genesis 12:1–4", "Abram goes without knowing where"],
+    ["2 Corinthians 5:17", "The old has gone, the new is here"],
+    ["Proverbs 16:3", "Commit to the Lord whatever you do"],
+    ["Psalm 37:23–24", "The Lord makes firm the steps of those who delight in him"],
+    ["Lamentations 3:22–23", "New every morning"],
+    ["Philippians 3:12–14", "Forgetting what is behind, straining toward what is ahead"],
+    ["Deuteronomy 31:8", "The Lord himself goes before you"] ] },
+  { key: "waiting", cat: "life", name: "Waiting for an answer", ask: "Can you trust God's timing as well as God's goodness?", how: "Read one and pray for patience as well as for the answer.", v: [
+    ["Psalm 130:5–6", "More than watchmen wait for the morning"],
+    ["Habakkuk 2:1–3", "It will surely come; it will not delay"],
+    ["Psalm 40:1–3", "I waited patiently for the Lord, and he heard"],
+    ["Isaiah 64:4", "God acts on behalf of those who wait for him"],
+    ["Genesis 21:1–7", "Sarah finally holds Isaac"],
+    ["Luke 2:25–32", "Simeon waited and saw the Lord's salvation"],
+    ["1 Samuel 1:9–20", "Hannah pours out her heart"],
+    ["2 Peter 3:8–9", "The Lord is not slow, but patient"],
+    ["Micah 7:7", "I wait for the God of my salvation"] ] },
+  { key: "failure", cat: "life", name: "After failing", ask: "What would you say to a friend who failed the same way?", how: "Read one, learn the lesson, and then let the failure go.", v: [
+    ["Proverbs 24:16", "The righteous fall seven times and rise again"],
+    ["Micah 7:8", "Though I have fallen, I will rise"],
+    ["John 21:15–19", "Jesus gives Peter a new start"],
+    ["Psalm 37:23–24", "Though he stumbles, he will not fall"],
+    ["2 Corinthians 12:9", "Grace sufficient in weakness"],
+    ["Philippians 3:13–14", "Forgetting what is behind"],
+    ["Lamentations 3:22–23", "His compassions never fail"],
+    ["Jonah 3:1–3", "The word came to Jonah a second time"],
+    ["Psalm 145:14", "The Lord upholds all who fall"] ] },
+  { key: "unfair", cat: "life", name: "Treated unfairly", ask: "Can you leave justice with God and still do what is right today?", how: "Read one before you respond, and pray for the person if you can.", v: [
+    ["Romans 12:17–21", "Leave room for God's justice; overcome evil with good"],
+    ["1 Peter 2:19–23", "Jesus did not retaliate"],
+    ["Psalm 37:1–9", "Do not fret; commit your way to the Lord"],
+    ["Matthew 5:38–48", "Love your enemies"],
+    ["Genesis 50:15–21", "Joseph forgives the brothers who sold him"],
+    ["Psalm 7:1–11", "God is a righteous judge"],
+    ["Micah 6:8", "Act justly and love mercy"],
+    ["Luke 18:1–8", "The widow who kept asking for justice"],
+    ["Isaiah 54:17", "No weapon formed against you will prevail"] ] },
+  { key: "travel", cat: "life", name: "Traveling", ask: "Who will you meet on this trip that you could bless?", how: "Read one before you leave and pray for safe travel.", v: [
+    ["Psalm 121:7–8", "He will watch over your coming and going"],
+    ["Psalm 139:9–10", "If I settle on the far side of the sea, your hand will guide me"],
+    ["Joshua 1:9", "The Lord is with you wherever you go"],
+    ["Genesis 28:15", "I will watch over you wherever you go"],
+    ["Proverbs 3:5–6", "He will make your paths straight"],
+    ["Isaiah 43:2", "When you pass through the waters"],
+    ["Psalm 91:9–12", "He will command his angels to guard you"],
+    ["Exodus 33:14", "My presence will go with you"] ] },
+  { key: "aging", cat: "life", name: "Getting older", ask: "What wisdom have the years given you that someone younger could use?", how: "Read one and thank God for a part of your story.", v: [
+    ["Isaiah 46:4", "Even to your old age, I will carry you"],
+    ["Psalm 71:17–18", "Even when I am old and gray, do not forsake me"],
+    ["Psalm 92:12–15", "They will still bear fruit in old age"],
+    ["Proverbs 16:31", "Gray hair is a crown of splendor"],
+    ["2 Corinthians 4:16", "Inwardly renewed day by day"],
+    ["Psalm 90:12", "Teach us to number our days"],
+    ["Joshua 14:10–12", "Caleb at 85: give me this hill country"] ] },
+
+  // ---- Relationships
+  { key: "forgive", cat: "people", name: "Needing to forgive", ask: "What would it cost you to let go of this debt?", how: "Read one, then pray a blessing over the person, even if you don't feel it yet.", v: [
+    ["Colossians 3:12–14", "Forgive as the Lord forgave you"],
+    ["Matthew 18:21–35", "Seventy-seven times, and the unforgiving servant"],
+    ["Ephesians 4:31–32", "Be kind and forgiving"],
+    ["Matthew 6:12–15", "Forgive us as we forgive others"],
+    ["Luke 23:33–34", "Father, forgive them"],
+    ["Genesis 45:1–15", "Joseph reveals himself to his brothers"],
+    ["Mark 11:25", "When you stand praying, forgive"],
+    ["Romans 12:17–21", "Overcome evil with good"],
+    ["Luke 6:27–36", "Bless those who curse you"] ] },
+  { key: "conflict", cat: "people", name: "In a conflict", ask: "What is your part in this, even if it's small?", how: "Read one before the conversation, and listen more than you speak.", v: [
+    ["Matthew 18:15–17", "Go and talk to them privately first"],
+    ["Romans 12:18", "As far as it depends on you, live at peace"],
+    ["James 1:19", "Quick to listen, slow to speak"],
+    ["Proverbs 15:1", "A gentle answer turns away wrath"],
+    ["Matthew 5:23–24", "First be reconciled, then come and offer your gift"],
+    ["Philippians 2:3–4", "Value others above yourselves"],
+    ["James 4:1–3", "What causes fights and quarrels?"],
+    ["Proverbs 17:14", "Starting a quarrel is like breaching a dam"],
+    ["Matthew 5:9", "Blessed are the peacemakers"],
+    ["Ephesians 4:2–3", "Keep the unity of the Spirit"] ] },
+  { key: "marriage", cat: "people", name: "Marriage", ask: "What is one way you can serve your spouse this week?", how: "Read one together if you can, and pray for each other by name.", v: [
+    ["1 Corinthians 13:4–7", "Love is patient, love is kind"],
+    ["Ephesians 5:21–33", "Submit to one another out of reverence for Christ"],
+    ["Genesis 2:18–24", "The two become one flesh"],
+    ["Ecclesiastes 4:9–12", "A cord of three strands is not quickly broken"],
+    ["Colossians 3:12–19", "Bear with each other; put on love"],
+    ["1 Peter 3:7–9", "Heirs together of the gracious gift of life"],
+    ["Song of Songs 8:6–7", "Many waters cannot quench love"],
+    ["Ruth 1:16–17", "Where you go I will go"],
+    ["Proverbs 31:10–31", "A wife of noble character"] ] },
+  { key: "parenting", cat: "people", name: "Parenting", ask: "What do you most want your children to know about God?", how: "Read one and pray for each child by name.", v: [
+    ["Deuteronomy 6:4–9", "Talk about these things at home and on the road"],
+    ["Proverbs 22:6", "Start children off on the way they should go"],
+    ["Ephesians 6:4", "Do not exasperate your children"],
+    ["Psalm 127:3–5", "Children are a heritage from the Lord"],
+    ["Psalm 78:1–7", "Tell the next generation"],
+    ["Mark 10:13–16", "Let the little children come to me"],
+    ["Colossians 3:21", "Don't embitter your children"],
+    ["Luke 15:20–24", "The father who waits and runs"],
+    ["Isaiah 40:11", "He gently leads those that have young"],
+    ["3 John 1:4", "No greater joy than to hear my children walk in truth"] ] },
+  { key: "friendship", cat: "people", name: "Friendship", ask: "Which friend needs encouragement from you this week?", how: "Read one and reach out to a friend today.", v: [
+    ["Proverbs 17:17", "A friend loves at all times"],
+    ["Ecclesiastes 4:9–12", "Two are better than one"],
+    ["John 15:12–15", "Greater love has no one than this"],
+    ["1 Samuel 18:1–4", "Jonathan and David's friendship"],
+    ["Proverbs 27:17", "Iron sharpens iron"],
+    ["Proverbs 18:24", "A friend who sticks closer than a brother"],
+    ["Galatians 6:2", "Carry each other's burdens"],
+    ["Hebrews 10:24–25", "Spur one another on"],
+    ["Romans 12:9–16", "Rejoice with those who rejoice, weep with those who weep"] ] },
+  { key: "difficult", cat: "people", name: "Loving difficult people", ask: "What might this person be carrying that you can't see?", how: "Read one, then do one quiet kindness for them.", v: [
+    ["Luke 6:27–36", "Love your enemies; do good to those who hate you"],
+    ["1 Corinthians 13:4–7", "Love keeps no record of wrongs"],
+    ["Romans 12:9–21", "If your enemy is hungry, feed him"],
+    ["Colossians 3:12–14", "Bear with each other"],
+    ["1 Peter 3:8–9", "Repay insult with blessing"],
+    ["Proverbs 19:11", "It is to one's glory to overlook an offense"],
+    ["Matthew 7:1–5", "First take the plank out of your own eye"],
+    ["Ephesians 4:1–3", "Be patient, bearing with one another in love"] ] },
+
+  // ---- Growing in faith
+  { key: "stillness", cat: "faith", name: "Quiet and meditation", ask: "Which word or phrase in the passage stays with you?", how: "Choose one passage and stay with it for ten minutes. Read it three times, slowly, then sit in silence.", v: [
+    ["Psalm 46:10", "Be still, and know that I am God"],
+    ["Psalm 23", "The Lord is my shepherd"],
+    ["Psalm 1", "Like a tree planted by streams of water"],
+    ["Psalm 139:1–18", "Fully known and never out of God's sight"],
+    ["Philippians 4:8", "Whatever is true, noble, right and lovely"],
+    ["Psalm 19", "The heavens declare the glory of God"],
+    ["Psalm 131", "I have calmed and quieted my soul"],
+    ["1 Kings 19:11–13", "God speaks in a gentle whisper"],
+    ["Joshua 1:8", "Meditate on it day and night"],
+    ["Psalm 62:5–8", "Rest in God alone"],
+    ["Isaiah 30:15", "In quietness and trust is your strength"],
+    ["Psalm 8", "What is man that you are mindful of him?"] ] },
+  { key: "prayer", cat: "faith", name: "Learning to pray", ask: "What do you need to talk to God about that you've been avoiding?", how: "Read one, then pray in your own words for five minutes.", v: [
+    ["Matthew 6:5–13", "Jesus teaches us how to pray"],
+    ["Luke 11:1–13", "Ask, seek, knock"],
+    ["Philippians 4:6–7", "Present your requests to God"],
+    ["1 Thessalonians 5:16–18", "Pray continually"],
+    ["Romans 8:26–27", "The Spirit helps us when we don't know what to pray"],
+    ["James 5:16–18", "The prayer of a righteous person is powerful"],
+    ["Luke 18:1–8", "Always pray and don't give up"],
+    ["John 17", "Jesus prays for his followers, including us"],
+    ["Psalm 145:18", "The Lord is near to all who call on him"],
+    ["Hebrews 4:16", "Approach the throne of grace with confidence"] ] },
+  { key: "godslove", cat: "faith", name: "Knowing God loves you", ask: "Do you believe God likes you, not just puts up with you?", how: "Read one and put your own name into it.", v: [
+    ["Romans 8:35–39", "Nothing can separate us from the love of God"],
+    ["John 3:16–17", "God so loved the world"],
+    ["1 John 4:9–10", "This is love: not that we loved God, but that he loved us"],
+    ["Ephesians 3:16–19", "How wide and long and high and deep"],
+    ["Zephaniah 3:17", "He takes great delight in you"],
+    ["Romans 5:6–8", "While we were still sinners, Christ died for us"],
+    ["Jeremiah 31:3", "I have loved you with an everlasting love"],
+    ["Isaiah 43:1–4", "You are precious and honored in my sight"],
+    ["1 John 3:1", "See what great love the Father has given us"],
+    ["Luke 15", "The lost sheep, the lost coin and the lost son"] ] },
+  { key: "salvation", cat: "faith", name: "How to be saved", ask: "What is keeping you from trusting Jesus fully?", how: "Read these in order. They walk through the good news step by step.", v: [
+    ["John 3:16", "Whoever believes will have eternal life"],
+    ["Romans 3:23–24", "All have sinned, and are justified freely by grace"],
+    ["Romans 6:23", "The gift of God is eternal life"],
+    ["Romans 5:8", "Christ died for us while we were still sinners"],
+    ["Romans 10:9–10", "Declare that Jesus is Lord and believe"],
+    ["Ephesians 2:8–9", "Saved by grace through faith, not by works"],
+    ["John 14:6", "I am the way, the truth and the life"],
+    ["Acts 2:36–39", "Repent and be baptized"],
+    ["1 John 5:11–13", "So that you may know you have eternal life"] ] },
+  { key: "hope", cat: "faith", name: "Hope for the future", ask: "What are you hoping for, and where does that hope rest?", how: "Read one and hold on to the promise in it.", v: [
+    ["Romans 15:13", "May the God of hope fill you with joy and peace"],
+    ["Jeremiah 29:11", "Plans to give you hope and a future"],
+    ["Romans 5:1–5", "Hope does not put us to shame"],
+    ["Hebrews 6:18–19", "Hope as an anchor for the soul"],
+    ["1 Peter 1:3–6", "A living hope through the resurrection"],
+    ["Revelation 21:1–7", "I am making everything new"],
+    ["Psalm 39:7", "My hope is in you"],
+    ["Lamentations 3:21–24", "Therefore I have hope"],
+    ["Isaiah 40:31", "Those who hope in the Lord"],
+    ["Romans 8:18–25", "Hope that is seen is no hope at all"] ] },
+  { key: "peace", cat: "faith", name: "Finding peace", ask: "What is stealing your peace right now?", how: "Read one and breathe slowly as you read.", v: [
+    ["John 14:27", "Peace I leave with you"],
+    ["Isaiah 26:3", "Perfect peace for a steadfast mind"],
+    ["Philippians 4:6–9", "The God of peace will be with you"],
+    ["John 16:33", "In this world you will have trouble, but take heart"],
+    ["Numbers 6:24–26", "The Lord bless you and keep you"],
+    ["Colossians 3:15", "Let the peace of Christ rule"],
+    ["Psalm 29:11", "The Lord blesses his people with peace"],
+    ["Romans 5:1", "Peace with God through Jesus"],
+    ["Psalm 4:8", "I will lie down in peace"] ] },
+  { key: "serving", cat: "faith", name: "Serving others", ask: "Whose need have you noticed lately that you could meet?", how: "Read one and do one act of service today.", v: [
+    ["Mark 10:42–45", "The Son of Man came to serve"],
+    ["John 13:1–17", "Jesus washes his disciples' feet"],
+    ["Matthew 25:31–40", "Whatever you did for the least of these"],
+    ["Galatians 5:13–14", "Serve one another humbly in love"],
+    ["1 Peter 4:8–11", "Use your gifts to serve others"],
+    ["Luke 10:25–37", "The good Samaritan"],
+    ["Philippians 2:3–8", "The mind of Christ, who took the form of a servant"],
+    ["James 2:14–17", "Faith without deeds is dead"],
+    ["Isaiah 58:6–11", "Spend yourself on behalf of the hungry"] ] },
+  { key: "wisdom", cat: "faith", name: "Wanting wisdom", ask: "Where do you most need wisdom right now?", how: "Read one and ask God for wisdom about one specific thing.", v: [
+    ["James 1:5", "If you lack wisdom, ask God"],
+    ["Proverbs 2:1–6", "The Lord gives wisdom"],
+    ["Proverbs 9:10", "The fear of the Lord is the beginning of wisdom"],
+    ["James 3:13–18", "The wisdom that comes from heaven"],
+    ["1 Kings 3:5–14", "Solomon asks for a discerning heart"],
+    ["Colossians 2:2–3", "All the treasures of wisdom are hidden in Christ"],
+    ["Psalm 119:97–105", "Your word is a lamp to my feet"],
+    ["Proverbs 4:5–7", "Get wisdom; though it cost all you have"],
+    ["Matthew 7:24–27", "The wise builder on the rock"] ] },
+];
+
+// Rotation: the same picks all day, new ones tomorrow. Each topic starts at a different offset.
+const dayNumber = () => { const d = today0(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); };
+const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+function picksFor(topic, count = 3, day = dayNumber()) {
+  const n = topic.v.length, start = (day * count + hash(topic.key)) % n, out = [];
+  for (let i = 0; i < Math.min(count, n); i++) out.push(topic.v[(start + i) % n]);
+  return out;
+}
+const TOPIC = Object.fromEntries(TOPICS.map(t => [t.key, t]));
+
+// ---------- Build the current plan's days ----------
+let schedule; // array of 365 entries: null for a catch-up day, else list of chapters
+function build() {
+  const p = PLANS[state.plan], start = fromIso(state.start);
+  const readingDays = [];
+  for (let d = 0; d < DAYS; d++) {
+    const dt = new Date(start); dt.setDate(dt.getDate() + d);
+    if (p.restWeekday === undefined || dt.getDay() !== p.restWeekday) readingDays.push(d);
+  }
+  schedule = Array.from({ length: DAYS }, (_, d) => readingDays.includes(d) ? [] : null);
+  const R = readingDays.length;
+  for (const all of p.streams()) {
+    const n = all.length;
+    readingDays.forEach((d, i) => schedule[d].push(...all.slice(Math.floor(i * n / R), Math.floor((i + 1) * n / R))));
+  }
+}
+function readingsFor(day) { // day: 1..365; [] on a catch-up day
+  const chs = schedule[day - 1], p = PLANS[state.plan];
+  if (!chs) return [];
+  return Object.keys(p.labels).map(key => {
+    const mine = chs.filter(x => x.key === key);
+    return mine.length ? { key, track: p.labels[key], passage: describe(mine) } : null;
+  }).filter(Boolean);
+}
+const done = () => state.progress[state.plan];
+
+// ---------- Day math ----------
+function todayDay() {
+  const diff = Math.round((today0() - fromIso(state.start)) / 86400000);
+  return Math.min(DAYS, Math.max(1, diff + 1));
+}
+function dateOf(day) { const d = fromIso(state.start); d.setDate(d.getDate() + day - 1); return d; }
+function dayStatus(day) {
+  const rs = readingsFor(day);
+  if (!rs.length) return "rest";
+  const got = done()[day] || [];
+  const n = rs.filter(r => got.includes(r.key)).length;
+  return n === 0 ? "none" : n === rs.length ? "done" : "partial";
+}
+
+// ---------- Render ----------
+let view;
+const $ = id => document.getElementById(id);
+const fmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderDay() {
+  const t = todayDay();
+  $("dayLabel").textContent = `Day ${view} of ${DAYS}` + (view === t ? " · Today" : "");
+  $("dateLabel").textContent = fmt.format(dateOf(view));
+  $("planName").textContent = `${PLANS[state.plan].name} plan`;
+  $("prev").disabled = view <= 1;
+  $("next").disabled = view >= DAYS;
+  $("toToday").hidden = view === t;
+  const got = done()[view] || [], ul = $("readings"), rs = readingsFor(view);
+  ul.innerHTML = "";
+  if (!rs.length) {
+    ul.innerHTML = `<li><p class="rest">Catch-up day. Finish any readings you missed this week, or reread a passage that stayed with you.</p></li>`;
+  }
+  rs.forEach(r => {
+    const li = document.createElement("li"); li.className = "reading";
+    const id = `chk-${r.key}`;
+    li.innerHTML = `<input type="checkbox" id="${id}"><label for="${id}"><span class="track">${r.track}</span><span class="passage">${r.passage}</span></label>`;
+    const box = li.querySelector("input");
+    box.checked = got.includes(r.key);
+    box.addEventListener("change", () => toggle(r.key, box.checked));
+    ul.appendChild(li);
+  });
+  const s = dayStatus(view), el = $("status");
+  el.className = "status" + (s === "done" ? " complete" : "");
+  el.textContent = s === "done" ? "Finished. Well done." : s === "rest" ? "" : rs.length > 1 ? "Tick each reading when you finish it." : "Tick it off when you finish.";
+}
+function renderYear() {
+  const t = todayDay(), grid = $("grid"); grid.innerHTML = "";
+  let finished = 0, total = 0, anyRest = false;
+  for (let d = 1; d <= DAYS; d++) {
+    const s = dayStatus(d);
+    if (s === "rest") anyRest = true; else total++;
+    if (s === "done") finished++;
+    const b = document.createElement("button");
+    const cls = { rest: " restday", partial: " partial", done: " done", none: "" }[s];
+    b.className = "cell" + cls + (d === t ? " today" : "") + (d === view ? " sel" : "");
+    b.setAttribute("role", "listitem");
+    const label = s === "rest" ? "Catch-up day" : readingsFor(d).map(r => r.passage).join(" · ");
+    b.setAttribute("aria-label", `Day ${d}: ${label}`);
+    b.title = `Day ${d} · ${label}`;
+    b.addEventListener("click", () => { view = d; render(); });
+    grid.appendChild(b);
+  }
+  $("restLegend").hidden = !anyRest;
+  $("count").textContent = `${finished} / ${total} days`;
+  $("bar").style.width = (finished / total * 100) + "%";
+  // streak: consecutive finished days ending today (or yesterday), skipping catch-up days
+  let k = dayStatus(t) === "done" || dayStatus(t) === "rest" ? t : t - 1, streak = 0;
+  while (k >= 1 && ["done", "rest"].includes(dayStatus(k))) { if (dayStatus(k) === "done") streak++; k--; }
+  $("streak").textContent = streak ? `${streak}-day streak` : "";
+}
+const TIMES = [["morning", "Morning"], ["midday", "Midday"], ["evening", "Evening"], ["bedtime", "Bedtime"]];
+let finderCat = "all", finderQuery = "";
+function verseItems(list) {
+  return list.map(([ref, why]) => `<li><span class="ref">${esc(ref)}</span><span class="why">${esc(why)}</span></li>`).join("");
+}
+function openTopic(key, scroll) {
+  state.moment = key; save(); renderMoments();
+  if (scroll) $("momentCard").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+function renderTimes() {
+  $("times").innerHTML = TIMES.map(([k, label]) => {
+    const [ref, why] = picksFor(TOPIC[k], 3)[0];
+    return `<li><span class="when">${label}</span><span class="what"><span class="ref">${esc(ref)}</span><span class="why">${esc(why)}</span><button data-topic="${k}">More for ${label.toLowerCase()}</button></span></li>`;
+  }).join("");
+  $("times").querySelectorAll("button").forEach(b => b.onclick = () => openTopic(b.dataset.topic, true));
+}
+function matches(t) {
+  if (finderCat !== "all" && t.cat !== finderCat) return false;
+  const q = finderQuery.trim().toLowerCase();
+  if (!q) return true;
+  return [t.name, t.ask, ...t.v.flat()].join(" ").toLowerCase().includes(q);
+}
+function renderMoments() {
+  const cats = $("catChips");
+  cats.innerHTML = "";
+  [{ key: "all", name: "All" }, ...CATS].forEach(c => {
+    const b = document.createElement("button");
+    b.className = "cat-chip"; b.textContent = c.name;
+    b.setAttribute("aria-pressed", String(c.key === finderCat));
+    b.onclick = () => { finderCat = c.key; renderMoments(); };
+    cats.appendChild(b);
+  });
+  const chips = $("chips"); chips.innerHTML = "";
+  const shown = TOPICS.filter(matches);
+  shown.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = t.name;
+    b.setAttribute("aria-pressed", String(t.key === state.moment));
+    b.onclick = () => openTopic(t.key);
+    chips.appendChild(b);
+  });
+  $("noMatch").hidden = shown.length > 0;
+  const t = TOPIC[state.moment] || TOPIC.bedtime;
+  $("momentCard").innerHTML =
+    `<div><p class="sub">${esc(CATS.find(c => c.key === t.cat).name)}</p><h3>${esc(t.name)}</h3></div>` +
+    `<div><p class="sub">Today's picks</p><ul class="verses">${verseItems(picksFor(t, 3))}</ul></div>` +
+    `<div class="reflect"><div><p class="sub">Think about</p><p class="q">${esc(t.ask)}</p></div><div><p class="sub">Try this</p><p>${esc(t.how)}</p></div></div>` +
+    `<details class="all"><summary>All ${t.v.length} passages on this topic</summary><ul class="verses">${verseItems(t.v)}</ul></details>`;
+}
+function renderQuick() {
+  $("quickList").innerHTML = TOPICS.filter(t => t.cat !== "time").map(t =>
+    `<tr><td><button data-topic="${t.key}">${esc(t.name)}</button></td><td>${esc(t.v[0][0])}</td></tr>`).join("");
+  $("quickList").querySelectorAll("button").forEach(b => b.onclick = () => openTopic(b.dataset.topic, true));
+}
+$("finderSearch").addEventListener("input", e => { finderQuery = e.target.value; renderMoments(); });
+function renderPlans() {
+  $("plans").innerHTML = Object.entries(PLANS).map(([k, p]) =>
+    `<label class="plan-opt"><input type="radio" name="plan" id="plan-${k}" value="${k}" ${k === state.plan ? "checked" : ""}><div><b>${p.name}</b><span>${p.blurb}</span></div></label>`).join("");
+  $("plans").querySelectorAll("input").forEach(r => r.addEventListener("change", () => {
+    state.plan = r.value; save(); build(); view = todayDay(); render();
+  }));
+}
+function render() { renderDay(); renderYear(); }
+function toggle(key, on) {
+  const list = new Set(done()[view] || []);
+  on ? list.add(key) : list.delete(key);
+  if (list.size) done()[view] = [...list]; else delete done()[view];
+  save(); render();
+}
+
+// ---------- Controls ----------
+$("prev").onclick = () => { if (view > 1) { view--; render(); } };
+$("next").onclick = () => { if (view < DAYS) { view++; render(); } };
+$("toToday").onclick = () => { view = todayDay(); render(); };
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input")) return;
+  if (e.key === "ArrowLeft") $("prev").click();
+  if (e.key === "ArrowRight") $("next").click();
+});
+$("startDate").value = state.start;
+$("startDate").addEventListener("change", e => {
+  if (!e.target.value) return;
+  state.start = e.target.value; save(); build(); view = todayDay(); render();
+});
+let armed = false;
+$("reset").onclick = () => {
+  if (!armed) { armed = true; $("reset").classList.add("armed"); $("reset").textContent = "Yes, clear this plan"; $("resetHint").textContent = "This cannot be undone."; return; }
+  state.progress[state.plan] = {}; save(); armed = false;
+  $("reset").classList.remove("armed"); $("reset").textContent = "Clear progress for this plan"; $("resetHint").textContent = "Progress cleared.";
+  render();
+};
+if (!TOPIC[state.moment]) state.moment = "bedtime";
+build(); view = todayDay(); renderPlans(); renderTimes(); renderMoments(); renderQuick(); render();
+<\/script>
+
+</body></html></script>
 <nav class="tabs" aria-label="Sections">
   <button data-tab="status" class="sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2-5 4 10 3-7 2 2h5"/></svg>Status</button>
   <button data-tab="train"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/></svg>Train</button>
   <button data-tab="food"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="7"/><path d="M12 6V3M9 3h6"/></svg>Food</button>
-  <button data-tab="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Find</button>
+  <button data-tab="bible"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5 2.5 2.5 0 0 0 6.5 24"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M12 6.5v7M9.5 9h5"/></svg>Bible</button>
   <button data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Log</button>
   <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Setup</button>
 </nav>
@@ -744,7 +1841,7 @@ async function cloudPull(token){
 async function cloudPush(token){
   const all=view();
   // anything on this phone the account has never seen goes up too
-  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
+  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings"||id==="bible")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
   const ids=Object.keys(cloudQ); if(!ids.length) return 0;
   const sent={...cloudQ};
   for(let i=0;i<ids.length;i+=200){
@@ -859,12 +1956,13 @@ function fmtSets(sets,v){ return sets.map(s=>{const w=numv(s.w);return (w?w+"×"
 
 /* ---------- UI state ---------- */
 let ui = lsGet(UI,{tab:"status"});
+if(ui.tab==="find") ui.tab="status";
 let draft = lsGet(DRAFT,null);  // active session in progress
 let foodDate = today();
 let pick = null;
 let quick = null, quickData = {};                // workout picked to preview (defaults to next)
 function saveDraft(){ lsSet(DRAFT,draft); }
-function setTab(t){ ui.tab=t; lsSet(UI,ui); document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("sel",b.dataset.tab===t)); ["status","train","food","find","log","more"].forEach(x=>$("#v-"+x).hidden=x!==t); render(); window.scrollTo(0,0); }
+function setTab(t){ ui.tab=t; lsSet(UI,ui); document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("sel",b.dataset.tab===t)); ["status","train","food","find","bible","log","more"].forEach(x=>$("#v-"+x).hidden=x!==t); render(); window.scrollTo(0,0); }
 document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 
 /* ---------- Render: Train ---------- */
@@ -1515,7 +2613,7 @@ function renderMore(){
   $("#imp",el).onchange=async e=>{
     const f=e.target.files[0]; if(!f) return;
     try{ const data=JSON.parse(await f.text()); let n=0;
-      for(const [k,v] of Object.entries(data)){ if(v&&typeof v==="object"&&(/^(s-|d-|a-|k-|i-)/.test(k)||k==="settings")){ pending[k]=v; n++; } }
+      for(const [k,v] of Object.entries(data)){ if(v&&typeof v==="object"&&(/^(s-|d-|a-|k-|i-)/.test(k)||k==="settings"||k==="bible")){ pending[k]=v; n++; } }
       lsSet(PENDING,pending); render(); await flush(); toast("Restored "+n+" entries");
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
@@ -2047,6 +3145,34 @@ Respond with only JSON: {"headline": string (one sentence), "days": [{"day": str
 $("#camKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
 $("#pickKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
 $("#camSteps").onchange=e=>{ onStepsShot(e.target.files[0]); e.target.value=""; };
+
+/* ---------- Bible 365 (embedded reading plan; its state is the synced "bible" doc) ---------- */
+let bibleShown=null; // JSON of the state the open frame was built from
+window.BIBLE_BRIDGE={
+  get(){ const v=view().bible; bibleShown=JSON.stringify(v||null); return v||null; },
+  set(st){ const j=JSON.stringify(st); if(j===JSON.stringify(view().bible||null)) return; bibleShown=j; put("bible",{...st,kind:"bible"}); }
+};
+function bibleTheme(){
+  const cs=getComputedStyle(document.documentElement), g=k=>cs.getPropertyValue(k).trim();
+  return `<style>:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{--bg:${g("--bg")}!important;--surface:${g("--surface")}!important;--ink:${g("--ink")}!important;--muted:${g("--muted")}!important;--line:${g("--line")}!important;--rubric:${g("--gold")}!important;--done:${g("--accent")}!important;--done-soft:${g("--accent-soft")}!important;--cell:${g("--line")}!important;--f-body:${g("--body")}!important;--f-mono:${g("--mono")}!important;color-scheme:${g("color-scheme")||"light"}!important}
+html,body{background:transparent!important;overflow:hidden}body{padding:4px 0 8px!important}.wrap{max-width:none!important}
+.day-card,.moment-card,.times,details#settingsBox{border-radius:14px!important;box-shadow:var(--shadow-card,0 1px 2px rgba(22,33,58,.04),0 6px 20px rgba(22,33,58,.05))}
+.brand{font-size:32px!important}.date,.passage,.brand,h2,h3{font-variant-numeric:lining-nums}</style>`;
+}
+function renderBible(){
+  const el=$("#v-bible"); let fr=$("#bibleFrame",el);
+  const cur=JSON.stringify(view().bible||null), theme=document.documentElement.dataset.scheme||"";
+  if(fr&&bibleShown===cur&&fr.dataset.scheme===theme){ fr._fit&&setTimeout(fr._fit,0); return; }
+  const src=$("#bibleSrc").textContent.replace(/<\\\/script/g,"</scr"+"ipt");
+  el.innerHTML='<iframe id="bibleFrame" title="Bible 365 reading plan" style="width:100%;border:0;display:block;min-height:70vh;background:transparent"></iframe>';
+  fr=$("#bibleFrame",el); fr.dataset.scheme=theme;
+  fr.addEventListener("load",()=>{ const d=fr.contentDocument; if(!d) return;
+    const fit=()=>{ const h=d.documentElement.scrollHeight; if(h>0) fr.style.height=h+"px"; }; fr._fit=fit;
+    fit(); try{ new ResizeObserver(fit).observe(d.body); }catch(e){} setTimeout(fit,600);
+  });
+  fr.srcdoc=src.replace(/<\/head>/i,bibleTheme()+"</head>");
+}
+(()=>{ const mq=matchMedia("(prefers-color-scheme: dark)"); const set=init=>{ document.documentElement.dataset.scheme=mq.matches?"dark":"light"; if(init!==true&&ui.tab==="bible") renderBible(); }; set(true); mq.addEventListener?.("change",set); })();
 let deferred=false;
 function render(){
   setSync(mode);
@@ -2055,7 +3181,7 @@ function render(){
   const a=document.activeElement, v=$("#v-"+t);
   if((t==="food"||t==="find"||t==="status")&&a&&v&&v.contains(a)&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&!/checkbox|file|date/.test(a.type)))){ deferred=true; return; }
   deferred=false;
-  if(t==="status") renderStatus(); else if(t==="train") renderTrain(); else if(t==="food") renderFood(); else if(t==="find") renderFind(); else if(t==="log") renderLog(); else renderMore();
+  if(t==="status") renderStatus(); else if(t==="train") renderTrain(); else if(t==="food") renderFood(); else if(t==="find") renderFind(); else if(t==="bible") renderBible(); else if(t==="log") renderLog(); else renderMore();
 }
 document.addEventListener("focusout",()=>{ if(deferred) setTimeout(()=>{ if(deferred&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)&&$("#v-"+ui.tab).contains(document.activeElement))) render(); },0); });
 // keep "today" fresh if the app stays open past midnight
