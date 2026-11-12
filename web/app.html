@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="6">
+<meta name="app-version" content="7">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -278,6 +278,7 @@ ul.tips li::before{content:"›";position:absolute;left:2px;color:var(--accent);
 <input type="file" id="camPhoto" accept="image/*" capture="environment" hidden>
 <input type="file" id="camLabel" accept="image/*" capture="environment" hidden>
 <input type="file" id="camKetone" accept="image/*" capture="environment" hidden>
+<input type="file" id="pickKetone" accept="image/*" hidden>
 <input type="file" id="camSteps" accept="image/*" hidden>
 
 <script>
@@ -1687,7 +1688,7 @@ function renderStatus(){
     <div class="spread"><div><div class="eyebrow">Ketosis</div><h2>Urine strip readings</h2></div>
       <div class="toggle" role="group" aria-label="Chart range"><button data-kv="day" class="${dash.kView==="day"?"sel":""}" aria-pressed="${dash.kView==="day"}">14 days</button><button data-kv="week" class="${dash.kView==="week"?"sel":""}" aria-pressed="${dash.kView==="week"}">8 weeks</button></div></div>
     ${ketoneChart(m)}
-    <button class="primary" id="kPhoto"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Photo of ketone strip</button>
+    <button class="primary" id="kPhoto"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Photo of ketone strip</button><button id="kPick"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-4px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>Upload a photo</button>
     <div><div class="small muted" style="margin-bottom:6px">Or tap the color it matched</div><div class="chips">${KLEVELS.map(x=>`<button class="cat kq" data-klev="${x.k}"><i class="sw k${KIDX[x.k]}"></i>${x.l}</button>`).join("")}</div></div>
     ${ketones().filter(k=>k.date===today()).length?`<div class="small muted">Today: ${ketones().filter(k=>k.date===today()).map(k=>`${KLEVELS[KIDX[k.level]].l} <button class="xbtn" data-kdel="${esc(k.id)}" aria-label="Delete reading">×</button>`).join(" · ")}</div>`:""}
   </div>
@@ -1701,6 +1702,7 @@ function renderStatus(){
   </div>`;
   el.querySelectorAll("[data-kv]").forEach(b=>b.onclick=()=>{dash.kView=b.dataset.kv;render()});
   $("#kPhoto",el).onclick=()=>$("#camKetone").click();
+  $("#kPick",el).onclick=()=>$("#pickKetone").click();
   el.querySelectorAll("[data-klev]").forEach(b=>b.onclick=()=>saveKetone(b.dataset.klev,"manual"));
   el.querySelectorAll("[data-kdel]").forEach(b=>b.onclick=()=>{put(b.dataset.kdel,null);toast("Reading deleted")});
   $("#planBtn",el).onclick=()=>buildPlan(m,w);
@@ -1737,6 +1739,7 @@ Respond with only JSON: {"headline": string (one sentence), "days": [{"day": str
 }
 
 $("#camKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
+$("#pickKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
 $("#camSteps").onchange=e=>{ onStepsShot(e.target.files[0]); e.target.value=""; };
 let deferred=false;
 function render(){
