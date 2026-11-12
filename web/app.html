@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="18">
+<meta name="app-version" content="19">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1758,7 +1758,8 @@ function waterSync(manual){
       const man=dd.waterHC==null?0:(+dd.waterAdj||0);
       if(dd.waterHC!==hc||Math.round(hc+man)!==(+dd.water||0)){ setWater(date,{waterHC:hc,waterAdj:man,water:Math.round(hc+man)}); n++; }
     }
-    waterInfo={at:Date.now(),src:sh.length?"Samsung Health":recs.length?"Health Connect":"none",err:""}; lsSet("lk-water-info",waterInfo);
+    const by={}; for(const x of recs){ if(ymd(new Date(x.startDate))!==t) continue; const k=x.sourceBundleId===SHEALTH?"Samsung Health":(x.sourceBundleId||"Other"); by[k]=(by[k]||0)+(+x.liters||0)*OZ_PER_L; }
+    waterInfo={at:Date.now(),src:sh.length?"Samsung Health":recs.length?"Health Connect":"none",err:"",n:recs.length,days:Object.keys(perDay).length,by,from:start.toISOString()}; lsSet("lk-water-info",waterInfo);
     return n;
   })().catch(e=>{ waterInfo={...(waterInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-water-info",waterInfo); return 0; })
     .finally(()=>{ waterBusy=null; });
@@ -1770,7 +1771,9 @@ function waterPanel(){
   return `<div class="panel"><div class="eyebrow">Samsung Health water</div>
     <div class="small">${on?`Connected. Water you log on your watch fills in on its own${waterInfo&&waterInfo.at?` (last read ${new Date(waterInfo.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`:""}.`:"Connect once and the water you log on your watch shows up on the Food tab by itself."}</div>
     ${waterInfo&&waterInfo.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(waterInfo.err)}</div>`:""}
-    <div class="row" style="gap:8px">${on?`<button id="wSync">Sync water now</button>`:`<button class="primary" id="wConnect">Connect water</button>`}</div>
+    ${on&&waterInfo&&!waterInfo.err&&waterInfo.n!=null?`<div class="small">Last read found <b>${waterInfo.n}</b> water entr${waterInfo.n===1?"y":"ies"} in Health Connect${waterInfo.days?` across ${waterInfo.days} day${waterInfo.days>1?"s":""}`:""}.${Object.keys(waterInfo.by||{}).length?` Today: ${Object.entries(waterInfo.by).map(([k,v])=>`${esc(k)} ${Math.round(v)} oz`).join(" · ")}.`:" None for today."}</div>`:""}
+    ${on&&waterInfo&&waterInfo.n===0?`<div class="small" style="color:var(--warn)">Health Connect has no water at all, so Samsung Health isn't sending it. Open Health Connect settings, tap App permissions, then Samsung Health, and turn on Hydration under "Allow to write". Then open Samsung Health once and tap Sync water now.</div>`:""}
+    <div class="row" style="gap:8px">${on?`<button id="wSync">Sync water now</button><button id="wHc">Health Connect settings</button>`:`<button class="primary" id="wConnect">Connect water</button>`}</div>
     <div class="small muted">In Samsung Health, open Settings, then Health Connect, and make sure Water intake is allowed to sync.</div></div>`;
 }
 function bindWaterPanel(el){
@@ -1779,6 +1782,7 @@ function bindWaterPanel(el){
     try{ const r=await W.requestPermission(); if(r&&r.granted){ lsSet("lk-water-on",true); const n=await waterSync(true); toast(n?`Water updated for ${n} day${n>1?"s":""}`:"Water connected"); } else toast(r&&r.available===false?"Health Connect wasn't found on this phone":"Water permission wasn't given. You can allow it in Health Connect settings"); }
     catch(e){ toast("Couldn't connect water: "+String((e&&e.message)||e)); }
     render(); };
+  const hs=$("#wHc",el); if(hs) hs.onclick=()=>{ const H=hcPlugin(); if(H&&H.openHealthConnectSettings) H.openHealthConnectSettings().catch(()=>{}); };
   const sy=$("#wSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Syncing…"; const n=await waterSync(true); toast(waterInfo&&waterInfo.err?"Couldn't read water: "+waterInfo.err:n?`Water updated for ${n} day${n>1?"s":""}`:"Water is up to date"); render(); };
 }
 function stepSync(manual){
