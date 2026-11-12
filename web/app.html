@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="12">
+<meta name="app-version" content="13">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#061114">
@@ -1859,16 +1859,23 @@ Respond with only JSON: {"level": "negative" | "trace" | "small" | "moderate" | 
 /* ---------- What you have: supplements and groceries ---------- */
 const VLABEL={great:"great",keep:"keep",ok:"ok",check:"ask your doctor",avoid:"avoid",skip:"skip"};
 function haveItems(){ return Object.entries(view()).filter(([k,v])=>v&&v.kind==="item").map(([k,v])=>({...v,id:k})).sort((a,b)=>String(a.name).localeCompare(String(b.name))); }
-const hv={busy:"",err:"",reviewBusy:false,review:lsGet("lk-supp-review",null)};
+const hv={busy:"",err:"",reviewBusy:false,review:lsGet("lk-supp-review",null),edit:null,fixing:null};
 function haveHtml(){
   const its=haveItems(); const sup=its.filter(x=>x.type==="supplement"), food=its.filter(x=>x.type!=="supplement");
-  const li=x=>`<li><div><div>${esc(x.name)}${x.amount?` <span class="small muted">${esc(x.amount)}</span>`:""}</div>${x.why?`<div class="small muted">${esc(x.why)}</div>`:""}</div><div class="row" style="gap:6px;flex:none">${x.verdict?`<span class="vchip v-${esc(x.verdict)}">${esc(VLABEL[x.verdict]||x.verdict)}</span>`:""}<button class="xbtn" data-hdel="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></div></li>`;
+  const li=x=>hv.edit===x.id?editLi(x):`<li><div data-hedit="${esc(x.id)}" style="cursor:pointer;flex:1"><div>${hv.fixing===x.id?"Updating… ":""}${esc(x.name)}${x.amount?` <span class="small muted">${esc(x.amount)}</span>`:""}</div>${x.why?`<div class="small muted">${esc(x.why)}</div>`:""}</div><div class="row" style="gap:6px;flex:none">${x.verdict?`<span class="vchip v-${esc(x.verdict)}">${esc(VLABEL[x.verdict]||x.verdict)}</span>`:""}<button class="xbtn" data-hdel="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></div></li>`;
+  const editLi=x=>`<li style="flex-direction:column;align-items:stretch;gap:8px"><div class="eyebrow">Fix this item</div>
+    <label class="f">What it really is<input id="heName" value="${esc(x.name)}" placeholder="brand and product, e.g. Optimum Nutrition Gold Standard Whey"></label>
+    <div class="grid2"><label class="f">Dose or size<input id="heAmt" value="${esc(x.amount||"")}" placeholder="e.g. 2 scoops (60 g), 400 mg"></label>
+    <label class="f">Type<select id="heType"><option value="supplement" ${x.type==="supplement"?"selected":""}>Supplement</option><option value="food" ${x.type!=="supplement"?"selected":""}>Grocery</option></select></label></div>
+    <div class="row" style="gap:8px"><button class="primary" id="heSave">Save</button><button id="heCancel">Cancel</button></div>
+    <div class="small muted">Claude re-checks it after you save.</div></li>`;
   const r=hv.review;
   return `<div class="panel have">
     <div class="eyebrow">What you have</div>
     <div class="small muted">Snap your supplements and groceries (a shelf, the fridge, a bag from the store). Claude lists each one, says whether it fits keto, and your plan and shopping list use what you already have.</div>
     <div class="row" style="gap:8px"><button class="primary" id="hCam">Take photo</button><button id="hPick">Upload photos</button></div>
     ${hv.busy?`<div class="small">${esc(hv.busy)}</div>`:""}${hv.err?`<div class="small" style="color:var(--bad)">${esc(hv.err)}</div>`:""}
+    ${its.length?`<div class="small muted">Tap an item to fix it if Claude read it wrong.</div>`:""}
     ${sup.length?`<div><div class="eyebrow">Supplements (${sup.length})</div><ul>${sup.map(li).join("")}</ul></div>`:""}
     ${food.length?`<div><div class="eyebrow">Groceries (${food.length})</div><ul>${food.map(li).join("")}</ul></div>`:""}
     ${sup.length?`<button id="hReview" ${hv.reviewBusy?"disabled":""}>${hv.reviewBusy?"Checking the research… (1 to 2 min)":r?"Re-check my supplements":"Check my supplements against the research"}</button>`:""}
@@ -1890,12 +1897,29 @@ function bindHave(el){
   const c=$("#hCam",el); if(c) c.onclick=()=>$("#camHave").click();
   const p=$("#hPick",el); if(p) p.onclick=()=>$("#pickHave").click();
   el.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=()=>{ put(b.dataset.hdel,null); toast("Removed"); });
+  el.querySelectorAll("[data-hedit]").forEach(b=>b.onclick=()=>{ hv.edit=b.dataset.hedit; render(); setTimeout(()=>{ const i=$("#heName"); if(i) i.focus(); },0); });
+  const hc=$("#heCancel",el); if(hc) hc.onclick=()=>{ hv.edit=null; render(); };
+  const hs=$("#heSave",el); if(hs) hs.onclick=()=>{ const id=hv.edit; const cur=view()[id]; if(!cur) return;
+    const name=$("#heName",el).value.trim(); if(!name){ toast("Enter what it is"); return; }
+    const doc={...cur,name,amount:$("#heAmt",el).value.trim(),type:$("#heType",el).value,corrected:true};
+    hv.edit=null; put(id,doc); toast("Saved"); recheckItem(id,doc); };
   const rv=$("#hReview",el); if(rv) rv.onclick=reviewSupplements;
 }
 function haveText(){
   const its=haveItems(); if(!its.length) return "";
   const sup=its.filter(x=>x.type==="supplement").map(x=>x.name+(x.amount?` (${x.amount})`:"")), food=its.filter(x=>x.type!=="supplement").map(x=>x.name+(x.amount?` (${x.amount})`:""));
   return `What he already has (from photos):${sup.length?`\nSupplements: ${sup.join(", ")}`:""}${food.length?`\nGroceries: ${food.join(", ")}`:""}`;
+}
+async function recheckItem(id,doc){
+  hv.fixing=id; render();
+  try{
+    const out=await askClaude(`${ctxText()}
+He corrected an item he has on hand. It is: ${doc.name}${doc.amount?` (${doc.amount})`:""}, a ${doc.type==="supplement"?"supplement":"grocery item"}.
+Judge it for strict keto and his goals (weight loss on tirzepatide, lifting, high protein). If the name is a common product, use its usual label facts.
+Respond with only JSON: {"name": string (clean brand + product name, keep his wording if unsure), "verdict": "great" | "ok" | "check" | "avoid" (check = worth asking his doctor), "why": string (one short sentence)}`);
+    const cur=view()[id]; if(cur) put(id,{...cur,name:out.name?String(out.name):cur.name,verdict:["great","ok","check","avoid"].includes(out.verdict)?out.verdict:cur.verdict,why:out.why?String(out.why):cur.why});
+  }catch(e){ hv.err=aiError(e); }
+  hv.fixing=null; render();
 }
 async function onHavePhotos(files){
   files=[...(files||[])].slice(0,4); if(!files.length) return;
