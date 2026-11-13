@@ -38,10 +38,10 @@ const NATIVE = {
     return `
   <div class="panel">
     <div class="eyebrow">Claude for photos and tips</div>
-    <div class="small">${hasKey ? "Your Anthropic API key is saved in this browser." : "Add your Anthropic API key here too if you want to read food photos, labels and ketone strips or get your daily plan on this computer."}</div>
+    <div class="small">${hasKey ? "Your Anthropic API key is set. It comes with your account, so your phone and this computer use the same one." : "Sign in above and the key from your phone comes along on its own. Or paste one here and it goes to your phone too."}</div>
     <label class="f">Anthropic API key<input id="n-key" type="password" autocomplete="off" placeholder="${hasKey ? "Saved (paste a new one to replace it)" : "sk-ant-…"}"></label>
     <div class="row" style="gap:8px"><button class="primary" id="n-keysave">Save key</button>${hasKey ? `<button id="n-keytest">Test it</button><button id="n-keydel">Remove</button>` : ""}</div>
-    <div class="small muted">Use the same key as on your phone (console.anthropic.com, API Keys). It stays in this browser and only goes to Anthropic. Only save it on your own computer.</div>
+    <div class="small muted">Keys come from console.anthropic.com under API Keys. Your key is kept with your account (only you can read it, once signed in) and is only sent to Anthropic. Signing out removes it from this browser.</div>
   </div>
   <div class="panel">
     <div class="eyebrow">Web version</div>
