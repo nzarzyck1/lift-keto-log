@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="21">
+<meta name="app-version" content="22">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1900,7 +1900,25 @@ function mergeDay(theirs,mine){
   for(const k of ["steps","waterHC"]) if(mine[k]==null&&theirs[k]!=null) out[k]=theirs[k];
   return out;
 }
-function cloudSignOut(){ cloudSess=null; cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave(); }
+// The Anthropic API key rides along with the account (its own row, readable only by the signed-in user)
+// so every phone or computer you sign in on uses the same key. It never goes into docs or backups.
+const AK="lk-api-key", AKS="lk-api-key-synced";
+const keyRaw=()=>{ try{ return (localStorage.getItem(AK)||"").trim(); }catch(e){ return ""; } };
+function keyFromCloud(r){
+  if((cloudMeta.apikey||0)>=r.ts) return 0;
+  if(keyRaw()!==(lsGet(AKS,"")||"")&&keyRaw()) return 0;             // a key saved here but not sent yet wins
+  const k=(r.data&&r.data.key)||"";
+  try{ if(k) localStorage.setItem(AK,k); else localStorage.removeItem(AK); }catch(e){}
+  lsSet(AKS,k); cloudMeta.apikey=r.ts; return 1;
+}
+async function keyToCloud(token){
+  const k=keyRaw(), was=lsGet(AKS,"")||"";
+  if(k===was) return;
+  const ts=Date.now();
+  await cfetch("/rest/v1/docs?on_conflict=user_id,id",{method:"POST",token,body:[{user_id:cloudSess.uid,id:"apikey",data:k?{key:k}:null,ts}],prefer:"resolution=merge-duplicates,return=minimal"});
+  lsSet(AKS,k); cloudMeta.apikey=ts;
+}
+function cloudSignOut(){ if(WEB){ try{ localStorage.removeItem(AK); }catch(e){} lsSet(AKS,""); } cloudSess=null; cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave(); }
 function cloudMark(id){
   if(!cloudOn()) return;
   const ts=Date.now(); cloudMeta[id]=ts; cloudQ[id]=ts; lsSet(CM,cloudMeta); lsSet(CQ,cloudQ);
@@ -1913,6 +1931,7 @@ async function cloudPull(token){
     const rows=await cfetch(q,{token}); if(!rows||!rows.length) break;
     for(const r of rows){
       cloudCursor=r.updated_at;
+      if(r.id==="apikey"){ changed+=keyFromCloud(r); continue; }
       if(cloudQ[r.id]&&cloudQ[r.id]>=r.ts){                   // our unsent change is newer
         // both devices changed the same day: keep every food from both so nothing logged is lost
         const mine=view()[r.id];
@@ -1951,6 +1970,7 @@ function cloudSync(manual){
       const token=await cloudToken();
       const got=await cloudPull(token);
       await cloudPush(token);
+      await keyToCloud(token);
       cloudSave(); cloudLast=Date.now(); cloudMsg="";
       if(manual) toast(got?`Synced. ${got} update${got>1?"s":""} came in.`:"Synced");
       if(got||manual) render();
