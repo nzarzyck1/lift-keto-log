@@ -31,7 +31,8 @@ jobs:
       - name: Assemble the site
         run: |
           mkdir -p _site
-          cp web/app.html web/version.json pages/install.html pages/icon.png _site/
+          cp web/app.html web/version.json web/web.js pages/install.html pages/icon.png _site/
+          cp web/portal.html _site/index.html
           sed -i "s#__REPO__#${GITHUB_REPOSITORY}#g" _site/install.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

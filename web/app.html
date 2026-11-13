@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="19">
+<meta name="app-version" content="20">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -332,6 +332,19 @@ nav.tabs button.sel{color:var(--accent);text-shadow:none;box-shadow:inset 0 2px 
 @media (max-width:380px){.readouts{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){h1::before{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* Web portal on a computer (html.web is set by web.js): tabs become a left rail, wider column. */
+@media (min-width:900px){
+html.web{--rail:216px}
+html.web body{padding-left:var(--rail)}
+html.web .wrap{max-width:780px;padding-left:32px;padding-right:32px;padding-bottom:48px}
+html.web nav.tabs{top:0;bottom:0;right:auto;width:var(--rail);display:flex;flex-direction:column;gap:2px;padding:84px 12px 16px;border-top:0;border-right:1px solid var(--line);box-shadow:none}
+html.web nav.tabs button{flex-direction:row;justify-content:flex-start;gap:12px;min-height:48px;padding:8px 14px;border-radius:10px;font-size:15px}
+html.web nav.tabs button.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--gold)}
+html.web nav.tabs button svg{width:21px;height:21px}
+html.web .toast{bottom:28px;left:calc(50% + var(--rail)/2)}
+html.web .sheet{border-radius:18px;max-height:88%}
+html.web #sheet{padding-left:var(--rail)}
+}
 </style>
 
 <div class="wrap">
@@ -1665,6 +1678,7 @@ let toastT; function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=f
 
 /* ---------- Store: db when available, phone cache always ---------- */
 const CACHE="liftlog-cache-v1", PENDING="liftlog-pending-v1", DRAFT="liftlog-draft-v1", UI="liftlog-ui-v1";
+const WEB=!!(window.NATIVE&&window.NATIVE.web), HERE=WEB?"this computer":"this phone";
 let docs = lsGet(CACHE,{});          // id -> data
 let pending = lsGet(PENDING,{});     // id -> data | null (delete), not yet synced
 let col = null, mode = "connecting";
@@ -1692,15 +1706,15 @@ async function flushOnce(){
       cloudMark(id);
       if(pending[id]===data){ delete pending[id]; }
       lsSet(PENDING,pending); lsSet(CACHE,docs);
-    }catch(e){ lastSyncErr=(e&&e.code)||"error"; setSync("off","Couldn't save to your account ("+lastSyncErr+"). Kept on this phone."); return; }
+    }catch(e){ lastSyncErr=(e&&e.code)||"error"; setSync("off","Couldn't save to your account ("+lastSyncErr+"). Kept on "+HERE+"."); return; }
   }
   setSync("on");
 }
 function setSync(state,msg){
   mode=state; const el=$("#sync");
   const n=Object.keys(pending).length;
-  if(state==="on") el.innerHTML=window.NATIVE?'<span class="dot on"></span><b>Saved on phone</b>':'<span class="dot on"></span><b>Synced</b>'+(n?" · "+n+" waiting":"");
-  else if(state==="off") el.innerHTML='<span class="dot off"></span><b>On this phone</b>'+(n?" · "+n+" not uploaded":"");
+  if(state==="on") el.innerHTML=window.NATIVE&&!(WEB&&cloudOn())?'<span class="dot on"></span><b>Saved on '+(WEB?"computer":"phone")+'</b>':'<span class="dot on"></span><b>Synced</b>'+(n?" · "+n+" waiting":"");
+  else if(state==="off") el.innerHTML='<span class="dot off"></span><b>On '+HERE+'</b>'+(n?" · "+n+" not uploaded":"");
   else el.innerHTML='<span class="dot"></span>Connecting…';
   el.title=msg||"";
 }
@@ -1878,6 +1892,14 @@ async function cloudSignIn(email,password,isNew){
   await cloudSync(true);
   return "ok";
 }
+function mergeDay(theirs,mine){
+  const key=f=>(f.ts||0)+"|"+f.n, seen=new Set(), foods=[];
+  for(const f of [...(mine.foods||[]),...(theirs.foods||[])]){ const k=key(f); if(!seen.has(k)){ seen.add(k); foods.push(f); } }
+  foods.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const out={...theirs,...mine,foods};
+  for(const k of ["steps","waterHC"]) if(mine[k]==null&&theirs[k]!=null) out[k]=theirs[k];
+  return out;
+}
 function cloudSignOut(){ cloudSess=null; cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave(); }
 function cloudMark(id){
   if(!cloudOn()) return;
@@ -1891,7 +1913,12 @@ async function cloudPull(token){
     const rows=await cfetch(q,{token}); if(!rows||!rows.length) break;
     for(const r of rows){
       cloudCursor=r.updated_at;
-      if(cloudQ[r.id]&&cloudQ[r.id]>=r.ts) continue;          // our unsent change is newer
+      if(cloudQ[r.id]&&cloudQ[r.id]>=r.ts){                   // our unsent change is newer
+        // both devices changed the same day: keep every food from both so nothing logged is lost
+        const mine=view()[r.id];
+        if(/^d-/.test(r.id)&&mine&&r.data){ const m=mergeDay(r.data,mine); docs[r.id]=m; if(pending[r.id]) pending[r.id]=m; try{ if(col) await col.doc(r.id).set(m); }catch(e){} changed++; }
+        continue;
+      }
       if((cloudMeta[r.id]||0)>=r.ts) continue;                 // already have it
       cloudMeta[r.id]=r.ts; delete cloudQ[r.id];
       if(r.data===null){ delete docs[r.id]; delete pending[r.id]; try{ if(col) await col.doc(r.id).delete(); }catch(e){} }
@@ -1939,13 +1966,13 @@ function cloudPanel(){
   if(!cloudReady()) return "";
   if(cloudSess) return `<div class="panel">
     <div class="eyebrow">Account</div>
-    <div class="small">Signed in as <b>${esc(cloudSess.email||"you")}</b>. Your log backs up and syncs to any phone where you sign in.${cloudLast?` Last sync ${new Date(cloudLast).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}.`:""}</div>
+    <div class="small">Signed in as <b>${esc(cloudSess.email||"you")}</b>. Your log backs up and syncs to your phone and any computer where you sign in.${cloudLast?` Last sync ${new Date(cloudLast).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}.`:""}</div>
     ${cloudMsg?`<div class="small" style="color:var(--warn)">${esc(cloudMsg)}</div>`:""}
     <div class="row" style="gap:8px"><button id="c-sync">Sync now</button><button id="c-out">Sign out</button></div>
   </div>`;
   return `<div class="panel">
     <div class="eyebrow">Account</div>
-    <div class="small">Sign in to back up your log and sync it to any phone. Your data stays on this phone too.</div>
+    <div class="small">${WEB?"Sign in with the same email and password you use in the phone app. Everything you log here shows up on your phone, and the other way around.":"Sign in to back up your log and sync it to any phone. Your data stays on this phone too."}</div>
     ${cloudMsg?`<div class="small" style="color:var(--warn)">${esc(cloudMsg)}</div>`:""}
     <div class="grid2">
       <label class="f">Email<input id="c-email" type="email" autocomplete="email" inputmode="email"></label>
@@ -1972,10 +1999,11 @@ function bindCloud(el){
     render();
   };
   on("#c-in",e=>go(false,e.currentTarget)); on("#c-new",e=>go(true,e.currentTarget));
-  on("#c-sync",()=>cloudSync(true)); on("#c-out",()=>{ cloudSignOut(); toast("Signed out. Your log stays on this phone."); render(); });
+  on("#c-sync",()=>cloudSync(true)); on("#c-out",()=>{ cloudSignOut(); toast("Signed out. Your log stays on "+HERE+"."); render(); });
 }
 if(cloudReady()){
-  setInterval(()=>{ if(cloudOn()&&Object.keys(cloudQ).length) cloudSync(false); },60000);
+  // every minute: send anything waiting, and while the app is on screen also pull what the other device logged
+  setInterval(()=>{ if(cloudOn()&&(Object.keys(cloudQ).length||!document.hidden)) cloudSync(false); },60000);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) cloudSync(false); });
   window.addEventListener("online",()=>cloudSync(false));
 }
@@ -2653,7 +2681,7 @@ function renderMore(){
   <button class="primary" id="ssave">Save settings</button>
   <div class="panel">
     <div class="eyebrow">Backup</div>
-    <div class="small muted">${window.NATIVE?"Your log is saved on this phone. Export a backup now and then and keep it in Google Drive or your Files app, so a lost or reset phone doesn't lose your history.":"Your log saves to your claude.ai account, so it's there on any phone or computer where you're signed in. Export a copy whenever you like."}</div>
+    <div class="small muted">${WEB?"Your log is saved in this browser and, once you sign in above, in your account. Export a copy whenever you like.":window.NATIVE?"Your log is saved on this phone. Export a backup now and then and keep it in Google Drive or your Files app, so a lost or reset phone doesn't lose your history.":"Your log saves to your claude.ai account, so it's there on any phone or computer where you're signed in. Export a copy whenever you like."}</div>
     <div class="row"><button id="exJson">Export backup (.json)</button><button id="exCsv">Export sets (.csv)</button></div>
     <label class="f">Restore from a backup file<input type="file" id="imp" accept=".json,application/json"></label>
     <textarea id="dump" hidden readonly></textarea>
@@ -2827,7 +2855,7 @@ function ruleTips(m,w){
     tips.push(liftsLeft>slots?`${liftsLeft} lifts are left but only ${slots} day${slots>1?"s":""} remain. Get in ${names.slice(0,slots).join(" and ")} and don't stack two days of heavy lower body.`:`${liftsLeft} lift${liftsLeft>1?"s":""} left this week: ${names.join(", then ")}. Spread them out with a rest day between lower days.`); }
   else tips.push("All 4 lifts are done this week. Use the remaining days for walking and recovery.");
   if(w.stepDays&&w.stepAvg<7000) tips.push(`Steps are averaging ${fmtK(w.stepAvg)} a day. Adding 2,000 more (a 15-20 minute walk after dinner) burns roughly ${fmtK(stepKcal(2000,m.cur))} kcal a day and helps blood sugar.`);
-  else if(!w.stepDays) tips.push(window.NATIVE?"Turn on Samsung Health steps in the Setup tab so your burn and projection count your walking.":"Enter your Samsung Health steps each evening (or snap a screenshot) so your burn and projection count your walking.");
+  else if(!w.stepDays) tips.push(WEB?"Steps come from your phone. Open the phone app and turn on Samsung Health steps in Setup so your burn and projection count your walking.":window.NATIVE?"Turn on Samsung Health steps in the Setup tab so your burn and projection count your walking.":"Enter your Samsung Health steps each evening (or snap a screenshot) so your burn and projection count your walking.");
   if(w.cardio<2) tips.push(`${2-w.cardio} more cardio session${2-w.cardio>1?"s":""} to reach 2 this week. A 25 minute incline walk after a lift counts.`);
   if(w.pAvg!=null&&w.pAvg<s.proteinMin) tips.push(`Protein is averaging ${Math.round(w.pAvg)} g, under your ${s.proteinMin} g minimum. Start each day with a protein shake or eggs, and lead every meal with meat.`);
   else if(w.pAvg!=null) tips.push(`Protein is averaging ${Math.round(w.pAvg)} g. Keep it there.`);
@@ -3017,7 +3045,7 @@ function mealHtml(ml,i,j){
     <div class="row" style="gap:6px">
       <button data-mswap="${i},${j}" ${busy?"disabled":""}>${busy?"Finding another…":"Something else"}</button>
       ${ml.p!=null?`<button data-mlog="${i},${j}">Log it</button>`:""}
-      ${q?`<a class="btn" style="min-height:38px;padding:6px 10px;font-size:14px;text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}" ${window.NATIVE?"":'target="_blank" rel="noopener"'}>Map</a>`:""}
+      ${q?`<a class="btn" style="min-height:38px;padding:6px 10px;font-size:14px;text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}" ${window.NATIVE&&!WEB?"":'target="_blank" rel="noopener"'}>Map</a>`:""}
     </div>
   </div>`;
 }
@@ -3064,7 +3092,7 @@ function haveHtml(){
   </div>`;
 }
 function reviewHtml(r){
-  const src=a=>(a||[]).slice(0,3).map(x=>`<a href="${esc(x.url)}" ${window.NATIVE?"":'target="_blank" rel="noopener"'}>${esc(x.title||x.url)}</a>`).join(" · ");
+  const src=a=>(a||[]).slice(0,3).map(x=>`<a href="${esc(x.url)}" ${window.NATIVE&&!WEB?"":'target="_blank" rel="noopener"'}>${esc(x.title||x.url)}</a>`).join(" · ");
   return `<div class="review">
     <div class="eyebrow">Supplement check · ${esc(fmtShort(r.date||today()))}</div>
     ${r.summary?`<div class="banner">${esc(r.summary)}</div>`:""}
@@ -3271,7 +3299,7 @@ document.addEventListener("focusout",()=>{ if(deferred) setTimeout(()=>{ if(defe
 // keep "today" fresh if the app stays open past midnight
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(foodDate>today()) foodDate=today(); render(); }});
 window.APP={saveSteps:()=>{ stepSync().then(n=>{ if(n) render(); }); },stepSync,day,put,render,toast,today,addDays,settings,view};
-setTab(draft?"train":"status");
+setTab(WEB&&!cloudSess?"more":draft?"train":"status");
 connect();
 setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),2500);
 })();
