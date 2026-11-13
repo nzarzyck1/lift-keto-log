@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="20">
+<meta name="app-version" content="21">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1933,7 +1933,7 @@ async function cloudPull(token){
 async function cloudPush(token){
   const all=view();
   // anything on this phone the account has never seen goes up too
-  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings"||id==="bible")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
+  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings"||id==="bible"||id==="plan")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
   const ids=Object.keys(cloudQ); if(!ids.length) return 0;
   const sent={...cloudQ};
   for(let i=0;i<ids.length;i+=200){
@@ -2772,7 +2772,11 @@ function flushPlanNotes(){
   const c=planCfg(); const patch={}; for(const [k,v] of Object.entries(d)){ const t=String(v).trim(); if(t!==c[k]) patch[k]=t; }
   if(Object.keys(patch).length) savePlanCfg(patch); }
 function planKey(){ const c=planCfg(); return JSON.stringify([c.days,c.room,c.hotel,c.site,c.airports,c.eatOut,c.avoid,c.drive,c.snack,c.notes,planDates().map(d=>whereOn(d))]); }
-function planStale(){ const p=dash.plan; return !!(p&&p.date===today()&&p.cfg&&p.cfg!==planKey()); }
+// The plan is a synced doc ("plan"), so it stays put after the day it was made and shows on phone and computer.
+function curPlan(){ const d=view().plan; if(d&&(d.made||0)>((dash.plan&&dash.plan.made)||0)){ dash.plan=d; lsSet("lk-plan",d); } return dash.plan; }
+function planLive(p){ return !!(p&&(p.date===today()||(p.days||[]).some(d=>(d.date||"")>=today()))); }
+function savePlan(p){ p.made=Date.now(); dash.plan=p; lsSet("lk-plan",p); put("plan",p); }
+function planStale(){ const p=curPlan(); return !!(planLive(p)&&p.cfg&&p.cfg!==planKey()); }
 function planDates(){ const c=planCfg(); return Array.from({length:c.days},(_,i)=>addDays(today(),i)); }
 function whereOn(date){ const c=planCfg(); if(c.where[date]) return c.where[date];
   // a day with no setting carries over from the day before (a hotel stay usually lasts several nights)
@@ -2957,10 +2961,10 @@ function renderStatus(){
     <div class="eyebrow">Rest of the week</div><h2>Suggestions</h2>
     <ul class="tips">${tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>
     ${planSetupHtml()}
-    ${dash.plan&&dash.plan.date===today()?planHtml(dash.plan):""}
+    ${planLive(curPlan())?planHtml(dash.plan):""}
     ${planStale()?`<div class="banner">You changed where you'll be since this plan was made. Tap <b>Update my plan</b> to redo the meals and shopping list.</div>`:""}
     ${dash.planErr?`<div class="small" style="color:var(--bad)">${esc(dash.planErr)}</div>`:""}
-    <button id="planBtn" class="primary" ${dash.planLoading?"disabled":""}>${dash.planLoading?(planCfg().hotel||planCfg().site?"Finding restaurants and building your plan… (1 to 3 min)":"Building your plan…"):planStale()?"Update my plan and shopping list":dash.plan&&dash.plan.date===today()?"Rebuild my plan":"Get a day-by-day plan from Claude"}</button>
+    <button id="planBtn" class="primary" ${dash.planLoading?"disabled":""}>${dash.planLoading?(planCfg().hotel||planCfg().site?"Finding restaurants and building your plan… (1 to 3 min)":"Building your plan…"):planStale()?"Update my plan and shopping list":planLive(dash.plan)?"Rebuild my plan":"Get a day-by-day plan from Claude"}</button>
   </div>`;
   el.querySelectorAll("[data-kv]").forEach(b=>b.onclick=()=>{dash.kView=b.dataset.kv;render()});
   $("#kPhoto",el).onclick=()=>$("#camKetone").click();
@@ -3005,15 +3009,16 @@ function bindPlanSetup(el){
   el.querySelectorAll("[data-mswap]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.mswap.split(",").map(Number); swapMeal(i,j); });
   el.querySelectorAll("[data-llog]").forEach(b=>b.onclick=()=>{ const [i,k]=b.dataset.llog.split(","); logLunch(+i,k); });
   el.querySelectorAll("[data-mlog]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.mlog.split(",").map(Number); logMeal(i,j); });
-  el.querySelectorAll("[data-shop]").forEach(x=>x.onchange=()=>{ const g=lsGet("lk-shop",{}); g[x.dataset.shop]=x.checked; lsSet("lk-shop",g); x.closest("li").classList.toggle("got",x.checked); });
+  el.querySelectorAll("[data-shop]").forEach(x=>x.onchange=()=>{ const p=dash.plan; if(!p) return; p.got={...(p.got||lsGet("lk-shop",{})),[x.dataset.shop]:x.checked}; x.closest("li").classList.toggle("got",x.checked); savePlan(p); });
   const cp=$("#shopCopy",el); if(cp) cp.onclick=async()=>{ const txt=shopText(dash.plan);
     try{ if(navigator.share){ await navigator.share({title:"Shopping list",text:txt}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
     try{ await navigator.clipboard.writeText(txt); toast("Shopping list copied"); }catch(e){ toast("Couldn't copy the list"); } };
 }
 function planHtml(p){
-  const got=lsGet("lk-shop",{});
+  const got=p.got||lsGet("lk-shop",{}), t=today();
   return `<div class="plan">${p.headline?`<div class="banner">${esc(p.headline)}</div>`:""}
-  ${(p.days||[]).map((d,i)=>`<div class="pday ${d.where&&d.where!=="Home"?"away":""}"><div class="spread"><span class="eyebrow">${esc(d.day)}</span>${d.where?`<span class="where">${esc(d.where)}</span>`:""}</div><div><b>Train:</b> ${esc(d.train||"")}</div>${d.eat?`<div><b>Eat:</b> ${esc(d.eat)}</div>`:""}${lunchHtml(d,i)}${(d.meals||[]).map((ml,j)=>mealHtml(ml,i,j)).join("")}${d.note?`<div class="small muted">${esc(d.note)}</div>`:""}</div>`).join("")}
+  ${p.made||p.date?`<div class="small muted">Saved plan, made ${fmtDate(p.date)}. Past days drop off; tap Rebuild for a fresh one.</div>`:""}
+  ${(p.days||[]).map((d,i)=>d.date&&d.date<t?"":`<div class="pday ${d.where&&d.where!=="Home"?"away":""}"><div class="spread"><span class="eyebrow">${esc(d.day)}</span>${d.where?`<span class="where">${esc(d.where)}</span>`:""}</div><div><b>Train:</b> ${esc(d.train||"")}</div>${d.eat?`<div><b>Eat:</b> ${esc(d.eat)}</div>`:""}${lunchHtml(d,i)}${(d.meals||[]).map((ml,j)=>mealHtml(ml,i,j)).join("")}${d.note?`<div class="small muted">${esc(d.note)}</div>`:""}</div>`).join("")}
   ${(p.shopping||[]).length?`<div class="shop"><div class="spread"><h3>Shopping list</h3><button id="shopCopy">Share list</button></div>
     ${p.shopping.map((g,gi)=>`<div><div class="eyebrow" style="margin-bottom:4px">${esc(g.where||g.group||"")}</div><ul>${(g.items||[]).map((it,ii)=>{ const id=p.date+"|"+gi+"|"+ii; return `<li class="${got[id]?"got":""}"><label><input type="checkbox" data-shop="${esc(id)}" ${got[id]?"checked":""}><span>${esc(it.item)}${it.qty?` · <b>${esc(it.qty)}</b>`:""}${it.why?` <span class="small muted">(${esc(it.why)})</span>`:""}</span></label></li>`; }).join("")}</ul></div>`).join("")}</div>`:""}
   </div>`;
@@ -3211,7 +3216,7 @@ Search the web for a real restaurant that's open now, within about ${c.drive} mi
 Respond with only JSON in this shape: ${MEAL_SHAPE}`;
   try{ const out=await askClaudeWeb(prompt,5); d.meals[j]={...out,rejected}; }
   catch(e){ ml.err=aiError(e); }
-  dash.swapping=null; lsSet("lk-plan",p); render();
+  dash.swapping=null; savePlan(p); render();
 }
 function logMeal(i,j){
   const p=dash.plan; const d=p.days[i]; const ml=d.meals[j];
@@ -3249,7 +3254,7 @@ Be encouraging but direct.
 Respond with only JSON: {"headline": string (one sentence), "days": [{"day": string (e.g. "Thu, Nov 13"), "date": "YYYY-MM-DD", "where": string (Home / Hotel / Flying out / Flying home / Driving), "train": string, "eat": string (short; for home days or anything not covered by meals), "lunch": {"out": {"dish": string, "place": string (restaurant name, or "" for a generic suggestion), "how": string (short, how to order it keto), "p": number, "c": number (net carbs), "f": number, "kcal": number}, "snack": {"dish": string, "p": number, "c": number, "f": number, "kcal": number}}, "meals": [${awayMeals?"MEAL":""}], "note": string}], "shopping": [{"where": string, "items": [{"item": string, "qty": string, "why": string (a few words, optional)}]}]}`;
   try{ const out=awayMeals?await askClaudeWeb(prompt.replace('"meals": [MEAL]','"meals": [one or more of '+MEAL_SHAPE+']'),20):await askClaude(prompt);
     (out.days||[]).forEach((d,i)=>{ if(!/^\d{4}-\d\d-\d\d$/.test(d.date||"")) d.date=ds[i]||today(); });
-    dash.plan={...out,date:today(),cfg:planKey()}; lsSet("lk-plan",dash.plan); }
+    savePlan({...out,date:today(),cfg:planKey(),got:{}}); }
   catch(e){ dash.planErr=aiError(e); }
   dash.planLoading=false; render();
 }
@@ -3301,6 +3306,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(food
 window.APP={saveSteps:()=>{ stepSync().then(n=>{ if(n) render(); }); },stepSync,day,put,render,toast,today,addDays,settings,view};
 setTab(WEB&&!cloudSess?"more":draft?"train":"status");
 connect();
+// a plan made before plans synced lives only on this device: save it once sync has had a chance to bring in a newer one
+setTimeout(()=>{ const p=dash.plan; if(p&&!view().plan&&planLive(p)) put("plan",{...p,made:p.made||1}); },10000);
 setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),2500);
 })();
 </script>
