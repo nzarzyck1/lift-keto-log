@@ -3306,6 +3306,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ if(food
 window.APP={saveSteps:()=>{ stepSync().then(n=>{ if(n) render(); }); },stepSync,day,put,render,toast,today,addDays,settings,view};
 setTab(WEB&&!cloudSess?"more":draft?"train":"status");
 connect();
+// a plan made before plans synced lives only on this device: save it once sync has had a chance to bring in a newer one
+setTimeout(()=>{ const p=dash.plan; if(p&&!view().plan&&planLive(p)) put("plan",{...p,made:p.made||1}); },10000);
 setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),2500);
 })();
 </script>
