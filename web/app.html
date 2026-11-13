@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="22">
+<meta name="app-version" content="23">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1730,7 +1730,7 @@ async function connect(){
       const fresh={}; snap.docs.forEach(d=>{ const v=d.data(); if(v) fresh[d.id]=v; });
       docs=fresh; lsSet(CACHE,docs); setSync("on"); render();
     }, err=>{ setSync("off","Sync paused: "+(err&&err.code)); });
-    setSync("on"); flush().then(()=>cloudSync(false));
+    setSync("on"); await rescueKey(); flush().then(()=>cloudSync(false));
     // keep retrying anything still waiting: every 20 s, and whenever the app comes back to the screen
     setInterval(()=>{ if(Object.keys(pending).length) flush(); },20000);
     document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&Object.keys(pending).length) flush(); });
@@ -1918,6 +1918,21 @@ async function keyToCloud(token){
   await cfetch("/rest/v1/docs?on_conflict=user_id,id",{method:"POST",token,body:[{user_id:cloudSess.uid,id:"apikey",data:k?{key:k}:null,ts}],prefer:"resolution=merge-duplicates,return=minimal"});
   lsSet(AKS,k); cloudMeta.apikey=ts;
 }
+// App v21 and older didn't know the key row, so a device that synced while on v21 stored it as an ordinary doc
+// and moved past it. Take the key from there and drop that copy so it stays out of backups.
+async function rescueKey(){
+  const d=(pending.apikey!==undefined?pending.apikey:docs.apikey); if(d===undefined) return;
+  const k=(d&&d.key)||"";
+  if(k&&!keyRaw()){ try{ localStorage.setItem(AK,k); }catch(e){} lsSet(AKS,k); }
+  delete docs.apikey; delete pending.apikey; lsSet(CACHE,docs); lsSet(PENDING,pending);
+  try{ if(col) await col.doc("apikey").delete(); }catch(e){}
+}
+function keyStatus(){
+  const k=keyRaw(), synced=k&&k===(lsGet(AKS,"")||"")&&cloudMeta.apikey;
+  if(synced) return "API key: saved to your account, so every device you sign in on uses it.";
+  if(k) return "API key: on this device, going up to your account on the next sync. Tap Sync now to send it.";
+  return "API key: none in your account yet. On the device that has it, open Setup and tap Sync now (that device needs app version 22 or newer).";
+}
 function cloudSignOut(){ if(WEB){ try{ localStorage.removeItem(AK); }catch(e){} lsSet(AKS,""); } cloudSess=null; cloudMeta={}; cloudQ={}; cloudCursor=""; cloudSave(); }
 function cloudMark(id){
   if(!cloudOn()) return;
@@ -1988,6 +2003,7 @@ function cloudPanel(){
     <div class="eyebrow">Account</div>
     <div class="small">Signed in as <b>${esc(cloudSess.email||"you")}</b>. Your log backs up and syncs to your phone and any computer where you sign in.${cloudLast?` Last sync ${new Date(cloudLast).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}.`:""}</div>
     ${cloudMsg?`<div class="small" style="color:var(--warn)">${esc(cloudMsg)}</div>`:""}
+    <div class="small">${keyStatus()}</div>
     <div class="row" style="gap:8px"><button id="c-sync">Sync now</button><button id="c-out">Sign out</button></div>
   </div>`;
   return `<div class="panel">
