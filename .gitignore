@@ -5,3 +5,5 @@ web/version.json
 *.jks
 _site/
 web/index.html
+web/web.js
+web/portal.html
