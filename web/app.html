@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="23">
+<meta name="app-version" content="24">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -38,7 +38,7 @@
 html,body{background:var(--bg)}
 body{color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));z-index:10;background:var(--bg)}
-.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px)));padding-right:max(16px,max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px)));padding-block:0 calc(var(--tabh) + 32px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px)));padding-right:max(16px,max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px)));padding-block:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px)) calc(var(--tabh) + 32px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}
 header.top{position:sticky;top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));z-index:5;background:var(--bg);padding-block:14px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
 h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:.01em}
 h1{font-size:24px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent)}
