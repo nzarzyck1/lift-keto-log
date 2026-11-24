@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="28">
+<meta name="app-version" content="29">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1834,7 +1834,7 @@ function swPanel(){
   const on=lsGet("lk-swater-on",false), i=waterInfo||{};
   return `<div class="panel"><div class="eyebrow">Watch water (Samsung Health)</div>
     <div class="small">${on?`Connected. Water you log on your Galaxy Watch or in Samsung Health fills in on the Food tab by itself${i.swN!=null?` (last read found <b>${i.swN}</b> entr${i.swN===1?"y":"ies"} over 2 weeks)`:""}.`:"Samsung Health doesn't share water with other apps, so this reads it straight from Samsung Health. It needs Samsung Health's developer mode turned on once."}</div>
-    ${on&&i.swErr?`<div class="small" style="color:var(--warn)">${esc(i.swErr)}</div>`:""}
+    ${on&&i.swErr?`<div class="small" style="color:var(--warn);overflow-wrap:anywhere">${esc(i.swErr)}</div>`:""}
     ${!on?`<div class="small muted">${esc(SW_HELP)}</div>`:""}
     <div class="row" style="gap:8px">${on?`<button id="swSync">Sync water now</button><button id="swOff">Turn off</button>`:`<button class="primary" id="swConnect">Connect watch water</button>`}</div>
     <div class="small muted">Samsung says developer mode is for testing, so a future Samsung Health update could switch it off. The + water buttons always work.</div></div>`;
