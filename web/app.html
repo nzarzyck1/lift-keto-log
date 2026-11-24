@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="25">
+<meta name="app-version" content="26">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -359,8 +359,6 @@ ul.clist li.no{border-left-color:var(--bad)}
 ul.clist .fix{margin-top:6px;font-size:14px}
 ul.clist .fix .eyebrow{color:var(--accent);margin-right:4px}
 .coach{border-top-color:color-mix(in srgb,var(--accent) 60%,var(--line))}
-button.bodymini{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;font-weight:500;width:100%}
-button.bodymini b{font-size:20px}
 /* Web portal on a computer (html.web is set by web.js): tabs become a left rail, wider column. */
 @media (min-width:900px){
 html.web{--rail:216px}
@@ -2161,21 +2159,13 @@ function renderBody(){
   const sc=scores(date), v=sc&&sc.v;
   // before the watch has sent anything today, show the last night's scores so the top isn't empty
   const dates=Array.from({length:14},(_,i)=>addDays(t,i-13));
-  const recTxt=sc&&sc.rec!=null?sc.rec+"%":sc&&sc.calibrating?"…":"—";
-  const recSub=sc&&sc.rec!=null?(sc.band==="good"?"Ready to push":sc.band==="warn"?"Steady day":"Take it easy"):sc&&sc.calibrating?"Learning your baseline (3 nights)":"No data";
-  const slTxt=sc&&sc.perf!=null?sc.perf+"%":"—";
-  const stTxt=sc&&sc.strain!=null?String(sc.strain):"—";
   const cons=sleepConsistency(date);
   el.innerHTML=`
   ${bodyConnectHtml()}
   <div class="hud">
     <div class="spread"><div><div class="eyebrow">Body · ${date===t?"today":fmtDate(date)}</div><h2>Recovery & effort</h2></div>
       <div class="row" style="gap:4px"><button class="ghost" id="bPrev" aria-label="Day before">‹</button>${date!==t?`<button class="ghost" id="bToday">Today</button>`:""}<button class="ghost" id="bNext" aria-label="Next day" ${date>=t?"disabled":""}>›</button></div></div>
-    <div class="gauges">
-      ${gauge(sc&&sc.perf,"Sleep",slTxt,sc&&sc.sleep?fmtMin(sc.sleep.asleep)+" of "+fmtMin(sc.need):"no sleep data","var(--fat)")}
-      ${gauge(sc&&sc.rec,"Recovery",recTxt,recSub,bandColor(sc&&sc.band))}
-      ${gauge(sc&&sc.strain!=null?sc.strain*5:null,"Strain",stTxt,sc?`aim ${sc.target[0]}-${sc.target[1]} today`:"no heart data","var(--accent)")}
-    </div>
+    ${bodyGauges(sc)}
     ${sc&&sc.why.length?`<div class="small muted">${sc.rec!=null?"Recovery from ":""}${esc(sc.why.join(" · "))}.</div>`:""}
     ${v?`<div class="readouts">
       <div class="ro"><div class="k">Resting HR</div><div class="v num">${v.rhr??"—"}</div><div class="u">${v.rhr?`bpm${sc.bR?` · usual ${Math.round(sc.bR)}`:""}`:"not sent"}</div></div>
@@ -2243,12 +2233,23 @@ function renderBody(){
   const sy=$("#vSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Reading…"; try{ const n=await vitSync(true); toast(n?`Watch data updated for ${n} day${n>1?"s":""}`:"Watch data is up to date"); }catch(e){ toast("Couldn't read watch data: "+e); } render(); };
   const hc=$("#vHc",el); if(hc) hc.onclick=()=>{ const H=hcPlugin(); if(H&&H.openHealthConnectSettings) H.openHealthConnectSettings().catch(()=>{}); };
 }
+function bodyGauges(sc){
+  const recTxt=sc&&sc.rec!=null?sc.rec+"%":sc&&sc.calibrating?"…":"—";
+  const recSub=sc&&sc.rec!=null?(sc.band==="good"?"Ready to push":sc.band==="warn"?"Steady day":"Take it easy"):sc&&sc.calibrating?"Learning your baseline (3 nights)":"No data";
+  return `<div class="gauges">
+      ${gauge(sc&&sc.perf,"Sleep",sc&&sc.perf!=null?sc.perf+"%":"—",sc&&sc.sleep?fmtMin(sc.sleep.asleep)+" of "+fmtMin(sc.need):"no sleep data","var(--fat)")}
+      ${gauge(sc&&sc.rec,"Recovery",recTxt,recSub,bandColor(sc&&sc.band))}
+      ${gauge(sc&&sc.strain!=null?sc.strain*5:null,"Strain",sc&&sc.strain!=null?String(sc.strain):"—",sc?`aim ${sc.target[0]}-${sc.target[1]} today`:"no heart data","var(--accent)")}
+    </div>`;
+}
+// Status tab: the three watch scores from the top of the Body tab
 function bodyMini(){
   const t=today(); const sc=scores(t)||scores(addDays(t,-1)); if(!sc) return "";
-  return `<button class="panel bodymini" id="toBody"><span class="eyebrow">Watch · ${sc.v.date===t?"today":"yesterday"}</span><span class="row" style="gap:14px">
-    <span><b class="num" style="color:${bandColor(sc.band)}">${sc.rec!=null?sc.rec+"%":"—"}</b> <span class="small muted">recovery</span></span>
-    <span><b class="num">${sc.sleep?fmtMin(sc.sleep.asleep):"—"}</b> <span class="small muted">sleep</span></span>
-    <span><b class="num">${sc.strain??"—"}</b> <span class="small muted">strain</span></span></span><span class="small muted">Tap for details and your AI coach</span></button>`;
+  return `<div class="hud">
+    <div class="spread"><div><div class="eyebrow">Watch · ${sc.v.date===t?"today":"yesterday"}</div><h2>Recovery & effort</h2></div><button class="ghost" id="toBody">Details ›</button></div>
+    ${bodyGauges(sc)}
+    ${sc.why.length?`<div class="small muted">${sc.rec!=null?"Recovery from ":""}${esc(sc.why.join(" · "))}.</div>`:""}
+  </div>`;
 }
 
 /* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */
