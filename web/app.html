@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="24">
+<meta name="app-version" content="25">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -147,7 +147,7 @@ details.sess .body{padding-top:8px;display:flex;flex-direction:column;gap:6px;fo
 .banner{font-size:14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft)}
 
 /* Tabs */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding-bottom:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));padding-left:max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px));padding-right:max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px))}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(7,1fr);padding-bottom:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));padding-left:max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px));padding-right:max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px))}
 nav.tabs button{border:0;border-radius:0;background:transparent;min-height:var(--tabh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:var(--display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 1px}
 nav.tabs button svg{width:24px;height:24px}
 nav.tabs button.sel{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent);text-shadow:0 0 8px rgba(53,230,189,.5)}
@@ -332,6 +332,35 @@ nav.tabs button.sel{color:var(--accent);text-shadow:none;box-shadow:inset 0 2px 
 @media (max-width:380px){.readouts{grid-template-columns:repeat(2,1fr)}}
 @media (prefers-reduced-motion:reduce){h1::before{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* Body tab: watch recovery, sleep and effort */
+.gauges{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.gauge svg{width:100%;max-width:150px;display:block;margin:0 auto}
+.gauge .gtrack{fill:none;stroke:var(--sunk);stroke-width:9;stroke-linecap:round}
+.gauge .gfill{fill:none;stroke-width:9;stroke-linecap:round;transition:stroke-dasharray .5s}
+.gauge .gbig{font-family:var(--mono);font-weight:600;font-size:17px;fill:var(--ink)}
+.gauge .glab{font-family:var(--display);font-weight:700;font-size:18px;margin-top:-2px}
+.gauge .gsub{font-size:12px;color:var(--muted);line-height:1.25}
+.stagebar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--sunk)}
+.stagebar span{display:block;height:100%}
+.chart .hrln{fill:none;stroke:var(--protein);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.chart .hsleep{fill:color-mix(in srgb,var(--fat) 14%,transparent)}
+.chart .hwork{fill:color-mix(in srgb,var(--accent) 22%,transparent)}
+.zones{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center}
+.zones .zbar{height:54px;background:var(--sunk);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden}
+.zones .zbar span{display:block;width:100%;background:var(--accent);border-radius:6px 6px 0 0}
+.zones > div:nth-child(4) .zbar span{background:var(--warn)} .zones > div:nth-child(5) .zbar span{background:var(--bad)}
+.zones .ax{font-family:var(--mono);font-size:12px;margin-top:3px}
+.trend{display:flex;flex-direction:column;gap:2px}
+ul.wlist{list-style:none;margin:0;padding:0}
+ul.wlist li{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+ul.clist{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+ul.clist li{padding:10px 12px;border-radius:12px;background:var(--sunk);border-left:3px solid var(--good)}
+ul.clist li.no{border-left-color:var(--bad)}
+ul.clist .fix{margin-top:6px;font-size:14px}
+ul.clist .fix .eyebrow{color:var(--accent);margin-right:4px}
+.coach{border-top-color:color-mix(in srgb,var(--accent) 60%,var(--line))}
+button.bodymini{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;font-weight:500;width:100%}
+button.bodymini b{font-size:20px}
 /* Web portal on a computer (html.web is set by web.js): tabs become a left rail, wider column. */
 @media (min-width:900px){
 html.web{--rail:216px}
@@ -359,6 +388,8 @@ html.web #sheet{padding-left:var(--rail)}
   <section class="view" id="v-train" hidden></section>
   <!-- FOOD -->
   <section class="view" id="v-food" hidden></section>
+
+  <section class="view" id="v-body" hidden></section>
   <!-- FIND (retired tab; code kept) -->
   <section class="view" id="v-find" hidden></section>
   <!-- BIBLE -->
@@ -1413,6 +1444,7 @@ build(); view = todayDay(); renderPlans(); renderTimes(); renderMoments(); rende
   <button data-tab="status" class="sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2-5 4 10 3-7 2 2h5"/></svg>Status</button>
   <button data-tab="train"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/></svg>Train</button>
   <button data-tab="food"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="7"/><path d="M12 6V3M9 3h6"/></svg>Food</button>
+  <button data-tab="body"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M7.5 11.5h2.5l1-2 2 4 1-2h2.5"/></svg>Body</button>
   <button data-tab="bible"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5 2.5 2.5 0 0 0 6.5 24"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M12 6.5v7M9.5 9h5"/></svg>Bible</button>
   <button data-tab="log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Log</button>
   <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Setup</button>
@@ -1800,8 +1832,8 @@ function bindWaterPanel(el){
   const sy=$("#wSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Syncing…"; const n=await waterSync(true); toast(waterInfo&&waterInfo.err?"Couldn't read water: "+waterInfo.err:n?`Water updated for ${n} day${n>1?"s":""}`:"Water is up to date"); render(); };
 }
 function stepSync(manual){
-  const wp=waterSync(manual);
-  return Promise.all([stepSyncOnly(manual),wp]).then(([a,b])=>a+b);
+  const wp=waterSync(manual), vp=vitSync(manual).catch(()=>0);
+  return Promise.all([stepSyncOnly(manual),wp,vp]).then(([a,b,c])=>a+b+c);
 }
 function stepSyncOnly(manual){
   const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
@@ -1857,6 +1889,367 @@ function stepsPanel(){
     <div class="small muted">Samsung Health sends steps to Health Connect every so often, so today's count can lag a bit. Opening Samsung Health makes it send right away.</div></div>`;
 }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) setTimeout(()=>stepSync().then(n=>{ if(n) render(); }),1500); });
+/* ---------- Watch insights: the Body tab ---------- */
+// Galaxy Watch -> Samsung Health -> Health Connect -> the app's own Vitals plugin (app install 4+).
+// Each day becomes one small synced doc "w-YYYY-MM-DD" with the raw summary (resting HR, HRV, sleep
+// stages, heart-rate load, workouts). Recovery, strain and sleep scores are worked out here when the
+// tab is drawn, so the computer shows the same thing and the formulas can improve without a reinstall.
+const vitPlugin=()=>window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("Vitals")?Capacitor.Plugins.Vitals:null;
+let vitBusy=null, vitInfo=lsGet("lk-vit-info",null);
+const VIT_LABEL={hr:"Heart rate",rhr:"Resting heart rate",hrv:"HRV",sleep:"Sleep",exercise:"Workouts",active:"Active calories",total:"Total calories",spo2:"Blood oxygen",resp:"Breathing rate",weight:"Weight",fat:"Body fat"};
+const EXTYPE={0:"Workout",4:"Baseball",5:"Basketball",8:"Bike ride",9:"Stationary bike",10:"Boot camp",11:"Boxing",13:"Calisthenics",16:"Dancing",25:"Elliptical",26:"Exercise class",32:"Golf",36:"HIIT",37:"Hike",44:"Martial arts",48:"Pilates",53:"Rowing",54:"Rowing machine",56:"Run",57:"Treadmill run",64:"Soccer",68:"Stair climbing",69:"Stair machine",70:"Strength training",71:"Stretching",74:"Pool swim",73:"Open water swim",76:"Tennis",79:"Walk",81:"Weightlifting",83:"Yoga"};
+function vitals(){ return Object.values(view()).filter(v=>v&&v.kind==="vitals"&&v.date).sort((a,b)=>a.date.localeCompare(b.date)); }
+function vitOn(date){ const v=view()["w-"+date]; return v&&v.kind==="vitals"?v:null; }
+function maxHr(){ return Math.round(208-0.7*bodyInfo().age); }
+const clamp=(x,lo=0,hi=100)=>Math.max(lo,Math.min(hi,x));
+function median(a){ a=a.filter(x=>x!=null&&isFinite(x)).sort((x,y)=>x-y); if(!a.length) return null; const m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+const dSec=d=>parseYmd(d).getTime()/1000;
+const hm=sec=>new Date(sec*1000).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+const fmtMin=m=>m==null?"—":`${Math.floor(m/60)}h ${pad(Math.round(m%60))}m`;
+
+// Turn one read of Health Connect into per-day summaries for the given dates.
+function vitDigest(raw,dates){
+  const SH=x=>(Array.isArray(x)?x[x.length-1]:x.src)===SHEALTH;
+  const pick=a=>{ a=a||[]; const sh=a.filter(SH); return sh.length?sh:a; };
+  const hr=(raw.hr||[]).slice().sort((a,b)=>a[0]-b[0]);
+  const hrIn=(s,e)=>{ let lo=0,hi=hr.length; while(lo<hi){ const m=(lo+hi)>>1; if(hr[m][0]<s) lo=m+1; else hi=m; } const out=[]; for(let i=lo;i<hr.length&&hr[i][0]<e;i++) out.push(hr[i]); return out; };
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const sleeps=pick(raw.sleep).slice().sort((a,b)=>a.s-b.s);
+  const exs=pick(raw.exercise).slice().sort((a,b)=>a.s-b.s).filter((x,i,a)=>!i||Math.abs(x.s-a[i-1].s)>120);
+  const mx=maxHr(), out={};
+  for(const date of dates){
+    const s0=dSec(date), s1=dSec(addDays(date,1));
+    // the night that ends on this morning counts for this day (anything ending between 6 pm the day before and 6 pm today)
+    const cand=sleeps.filter(x=>x.e>s0-6*3600&&x.e<=s0+18*3600);
+    const main=cand.reduce((m,x)=>!m||x.e-x.s>m.e-m.s?x:m,null);
+    let sleep=null;
+    if(main&&main.e-main.s>=45*60){
+      const st={light:0,deep:0,rem:0,awake:0,plain:0};
+      for(const [a,b,t] of main.stages||[]){ const m=(b-a)/60; if(t===4) st.light+=m; else if(t===5) st.deep+=m; else if(t===6) st.rem+=m; else if(t===1||t===3||t===7) st.awake+=m; else st.plain+=m; }
+      const inBed=(main.e-main.s)/60, staged=(main.stages||[]).length>0;
+      const asleep=staged?st.light+st.deep+st.rem+st.plain:inBed;
+      const naps=cand.filter(x=>x!==main&&x.s>=main.e).reduce((t,x)=>t+(x.e-x.s)/60,0);
+      const shr=hrIn(main.s,main.e).map(x=>x[1]);
+      let low=null; for(let i=0;i+5<=shr.length;i++){ const a5=avg(shr.slice(i,i+5)); if(low==null||a5<low) low=a5; }
+      sleep={s:main.s,e:main.e,inBed:Math.round(inBed),asleep:Math.round(asleep),light:Math.round(st.light+st.plain),deep:Math.round(st.deep),rem:Math.round(st.rem),awake:Math.round(st.awake),staged,naps:Math.round(naps),hr:shr.length?Math.round(avg(shr)):null,low:low!=null?Math.round(low):null};
+    }
+    const win=sleep?[sleep.s,sleep.e]:[s0,s0+8*3600];
+    const rr=pick(raw.rhr).filter(x=>x[0]>=s0&&x[0]<s1);
+    let rhr=rr.length?Math.round(rr[rr.length-1][1]):null, rhrSrc=rr.length?"watch":"";
+    if(rhr==null&&sleep&&sleep.low){ rhr=sleep.low; rhrSrc="sleep"; }
+    const hv=pick(raw.hrv).filter(x=>x[0]>=win[0]-3600&&x[0]<=win[1]+3600);
+    const hv2=hv.length?hv:pick(raw.hrv).filter(x=>x[0]>=s0&&x[0]<s1);
+    const hrv=hv2.length?Math.round(avg(hv2.map(x=>x[1]))):null;
+    const ox=(raw.spo2||[]).filter(x=>x[0]>=win[0]&&x[0]<=win[1]); const ox2=ox.length?ox:(raw.spo2||[]).filter(x=>x[0]>=s0&&x[0]<s1);
+    const rs=(raw.resp||[]).filter(x=>x[0]>=win[0]&&x[0]<=win[1]); const rs2=rs.length?rs:(raw.resp||[]).filter(x=>x[0]>=s0&&x[0]<s1);
+    // heart-rate load: minutes above half of max heart rate, weighted harder the closer to max (a TRIMP-style sum)
+    const dayHr=hrIn(s0,s1); const rest=rhr||70; const zones=[0,0,0,0,0]; let trimp=0, cover=0;
+    const hr96=new Array(96).fill(0), c96=new Array(96).fill(0);
+    for(let i=0;i<dayHr.length;i++){
+      const [t,b]=dayHr[i]; const dt=Math.min(i+1<dayHr.length?dayHr[i+1][0]-t:60,600)/60; cover+=dt;
+      const k=Math.floor((t-s0)/900); if(k>=0&&k<96){ hr96[k]+=b; c96[k]++; }
+      const pct=b/mx; if(pct>=.5){ zones[Math.min(4,Math.floor((pct-.5)*10))]+=dt; const x=clamp((b-rest)/(mx-rest),0,1); trimp+=dt*x*0.64*Math.exp(1.92*x); }
+    }
+    const workouts=exs.filter(x=>x.s>=s0&&x.s<s1).map(x=>{
+      const h=hrIn(x.s,x.e).map(y=>y[1]); let tr=0;
+      hrIn(x.s,x.e).forEach((y,i,a)=>{ const dt=Math.min(i+1<a.length?a[i+1][0]-y[0]:60,600)/60; const xx=clamp((y[1]-rest)/(mx-rest),0,1); if(y[1]/mx>=.5) tr+=dt*xx*0.64*Math.exp(1.92*xx); });
+      const kc=pick(raw.active).filter(c=>c[0]>=x.s-60&&c[1]<=x.e+60).reduce((t,c)=>t+c[2],0);
+      return {name:(x.title&&!/^\d+$/.test(x.title)?x.title:EXTYPE[x.type]||"Workout"),type:x.type,s:x.s,min:Math.round((x.e-x.s)/60),avgHr:h.length?Math.round(avg(h)):null,maxHr:h.length?Math.max(...h):null,trimp:Math.round(tr),kcal:kc?Math.round(kc):null};
+    });
+    const act=pick(raw.active).filter(c=>c[0]>=s0&&c[0]<s1).reduce((t,c)=>t+c[2],0);
+    const tot=pick(raw.total).filter(c=>c[0]>=s0&&c[0]<s1).reduce((t,c)=>t+c[2],0);
+    const wt=pick(raw.weight).filter(x=>x[0]>=s0&&x[0]<s1).pop(); const bf=(raw.fat||[]).filter(x=>x[0]>=s0&&x[0]<s1).pop();
+    const hrs=dayHr.map(x=>x[1]);
+    const doc={kind:"vitals",date,rhr,rhrSrc,hrv,sleep,
+      spo2:ox2.length?r1(avg(ox2.map(x=>x[1]))):null, spo2Min:ox2.length?r1(Math.min(...ox2.map(x=>x[1]))):null,
+      resp:rs2.length?r1(avg(rs2.map(x=>x[1]))):null,
+      trimp:Math.round(trimp), zones:zones.map(Math.round), cover:Math.round(cover),
+      hrAvg:hrs.length?Math.round(avg(hrs)):null, hrMax:hrs.length?Math.max(...hrs):null,
+      hr96:hr96.map((v,i)=>c96[i]?Math.round(v/c96[i]):0), workouts,
+      active:act?Math.round(act):null, total:tot?Math.round(tot):null,
+      weight:wt?r1(wt[1]*2.20462):null, fat:bf?r1(bf[1]):null};
+    if(sleep||hrs.length||workouts.length||rhr||hrv||doc.weight) out[date]=doc;
+  }
+  return out;
+}
+const vitSame=(a,b)=>{ if(!a||!b) return false; const {ts:x,...A}=a, {ts:y,...B}=b; return JSON.stringify(A)===JSON.stringify(B); };
+function vitSync(manual){
+  const V=vitPlugin(); if(!V||!lsGet("lk-vit-on",false)) return Promise.resolve(0);
+  if(vitBusy) return vitBusy;
+  const last=(vitInfo&&vitInfo.at)||0;
+  if(!manual&&Date.now()-last<10*60000) return Promise.resolve(0);
+  const full=manual||!vitInfo||!vitInfo.full||Date.now()-vitInfo.full>12*3600e3;
+  vitBusy=(async()=>{
+    const t=today(), back=full?29:1; const dates=[]; for(let i=back;i>=0;i--) dates.push(addDays(t,-i));
+    let n=0, errs={}, found={};
+    // read a few days at a time so a month of minute-by-minute heart rate never piles up at once
+    for(let i=0;i<dates.length;i+=6){
+      const chunk=dates.slice(i,i+6);
+      const start=new Date((dSec(chunk[0])-30*3600)*1000), end=new Date(Math.min(Date.now(),dSec(addDays(chunk[chunk.length-1],1))*1000));
+      const raw=await V.read({startDate:start.toISOString(),endDate:end.toISOString()});
+      Object.assign(errs,(raw&&raw.errors)||{});
+      for(const k of Object.keys(VIT_LABEL)) if(raw&&raw[k]&&raw[k].length) found[k]=(found[k]||0)+raw[k].length;
+      const got=vitDigest(raw||{},chunk);
+      for(const [date,doc] of Object.entries(got)){
+        if(!vitSame(vitOn(date),doc)){ put("w-"+date,{...doc,ts:Date.now()}); n++; }
+        // a weigh-in from a Samsung Health scale fills the day's weight when you didn't type one
+        const dd=day(date); if(doc.weight&&dd.weight==null) put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],weight:doc.weight,weightSrc:"Samsung Health"});
+      }
+    }
+    vitInfo={at:Date.now(),full:full?Date.now():(vitInfo&&vitInfo.full)||0,errs,found,err:""}; lsSet("lk-vit-info",vitInfo);
+    return n;
+  })().catch(e=>{ vitInfo={...(vitInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-vit-info",vitInfo); if(manual) throw vitInfo.err; return 0; })
+    .finally(()=>{ vitBusy=null; });
+  return vitBusy;
+}
+
+/* Scores, worked out from the synced day docs */
+function baseOf(date,f,n=28){ const vs=vitals().filter(v=>v.date<date&&v.date>=addDays(date,-n)).map(f).filter(x=>x!=null&&isFinite(x)); return vs.length>=3?median(vs):null; }
+const strainOf=trimp=>trimp==null?null:r1(20*(1-Math.exp(-trimp/90)));
+function sleepNeed(date){
+  // 7.5 h, plus extra after a hard day, plus a third of the sleep you've been short over the last 3 nights
+  let need=450; const prev=vitOn(addDays(date,-1)); const ps=prev?strainOf(prev.trimp):null;
+  if(ps!=null&&ps>10) need+=Math.min(45,(ps-10)*6);
+  let debt=0; for(let i=1;i<=3;i++){ const v=vitOn(addDays(date,-i)); if(v&&v.sleep) debt+=Math.max(0,450-v.sleep.asleep-(v.sleep.naps||0)); }
+  return Math.round(need+Math.min(60,debt/3));
+}
+function scores(date){
+  const v=vitOn(date); if(!v) return null;
+  const strain=strainOf(v.trimp), sl=v.sleep, need=sleepNeed(date);
+  const perf=sl?Math.round(clamp((sl.asleep+(sl.naps||0))/need*100)):null;
+  const bR=baseOf(date,x=>x.rhr), bH=baseOf(date,x=>x.hrv), bP=baseOf(date,x=>x.resp);
+  const parts=[], why=[];
+  if(v.hrv&&bH){ const s=clamp(70+150*(v.hrv/bH-1)); parts.push([s,.4]); why.push(`HRV ${v.hrv} ms vs your usual ${Math.round(bH)}`); }
+  if(v.rhr&&bR){ const s=clamp(70-7*(v.rhr-bR)); parts.push([s,.3]); why.push(`resting HR ${v.rhr} vs your usual ${Math.round(bR)}`); }
+  if(perf!=null){ parts.push([perf,.3]); why.push(`sleep ${perf}% of what you needed`); }
+  let rec=null;
+  if(parts.length&&(bR||bH)){ const w=parts.reduce((t,p)=>t+p[1],0); rec=parts.reduce((t,p)=>t+p[0]*p[1],0)/w;
+    if(v.resp&&bP&&v.resp>bP+1){ rec-=Math.min(15,(v.resp-bP)*6); why.push(`breathing rate up to ${v.resp}`); }
+    rec=Math.round(clamp(rec,1,99)); }
+  const band=rec==null?null:rec>=67?"good":rec>=34?"warn":"bad";
+  const target=rec==null?[8,13]:rec>=67?[13,17]:rec>=34?[9,13]:[4,8];
+  return {v,strain,sleep:sl,need,perf,rec,band,why,target,bR,bH,calibrating:rec==null&&!!(sl||v.rhr)};
+}
+function sleepConsistency(date){
+  const ns=[]; for(let i=0;i<7;i++){ const v=vitOn(addDays(date,-i)); if(v&&v.sleep) ns.push(v.sleep); }
+  if(ns.length<3) return null;
+  const mins=t=>{ const d=new Date(t*1000); let m=d.getHours()*60+d.getMinutes(); if(m<12*60) m+=24*60; return m; };
+  const sd=a=>{ const m=a.reduce((x,y)=>x+y,0)/a.length; return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length); };
+  const spread=(sd(ns.map(n=>mins(n.s)))+sd(ns.map(n=>{ const d=new Date(n.e*1000); return d.getHours()*60+d.getMinutes(); })))/2;
+  return {pct:Math.round(clamp(100-spread*0.8)),spread:Math.round(spread),n:ns.length};
+}
+
+/* Drawing */
+function gauge(pct,label,big,sub,color){
+  const R=42, C=Math.PI*R, f=clamp(pct==null?0:pct)/100;
+  return `<div class="gauge"><svg viewBox="0 0 100 60" role="img" aria-label="${esc(label)} ${esc(big)}"><path d="M8 54 A42 42 0 0 1 92 54" class="gtrack"/>${pct!=null?`<path d="M8 54 A42 42 0 0 1 92 54" class="gfill" style="stroke:${color};stroke-dasharray:${(C*f).toFixed(1)} ${C.toFixed(1)}"/>`:""}<text x="50" y="50" text-anchor="middle" class="gbig">${esc(big)}</text></svg><div class="glab">${esc(label)}</div><div class="gsub">${sub}</div></div>`;
+}
+const bandColor=b=>b==="good"?"var(--good)":b==="warn"?"var(--warn)":b==="bad"?"var(--bad)":"var(--muted)";
+function hrDayChart(v,date){
+  const W=360,H=120,L=26,R=6,T=8,B=20; const pts=v.hr96||[]; const vals=pts.filter(x=>x>0); if(vals.length<4) return "";
+  const lo=Math.min(...vals)-5, hi=Math.max(...vals)+5, x=i=>L+(W-L-R)*i/96, y=b=>T+(H-T-B)*(1-(b-lo)/(hi-lo));
+  const s0=dSec(date); let path="", on=false;
+  pts.forEach((b,i)=>{ if(b>0){ path+=(on?"L":"M")+x(i+.5).toFixed(1)+" "+y(b).toFixed(1); on=true; } else on=false; });
+  const sl=v.sleep?`<rect x="${x(Math.max(0,(v.sleep.s-s0)/900))}" y="${T}" width="${Math.max(0,x(Math.min(96,(v.sleep.e-s0)/900))-x(Math.max(0,(v.sleep.s-s0)/900)))}" height="${H-T-B}" class="hsleep"/>`:"";
+  const wo=(v.workouts||[]).map(w=>`<rect x="${x((w.s-s0)/900)}" y="${T}" width="${Math.max(2,x((w.s-s0+w.min*60)/900)-x((w.s-s0)/900))}" height="${H-T-B}" class="hwork"><title>${esc(w.name)}</title></rect>`).join("");
+  const ticks=[0,6,12,18,24].map(h=>`<text x="${x(h*4)}" y="${H-5}" class="ax sm" text-anchor="${h===0?"start":h===24?"end":"middle"}">${h===0||h===24?"12a":h===12?"12p":h<12?h+"a":(h-12)+"p"}</text>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Heart rate through the day">${sl}${wo}
+    <text x="${L-4}" y="${y(hi-5)+3}" class="ax sm" text-anchor="end">${hi-5}</text><text x="${L-4}" y="${y(lo+5)+3}" class="ax sm" text-anchor="end">${lo+5}</text>
+    <path d="${path}" class="hrln"/>${ticks}</svg>`;
+}
+function trendBars(dates,get,opt){
+  const W=360,H=96,L=6,R=6,T=14,B=18; const cw=(W-L-R)/dates.length, bw=Math.min(16,cw*.62);
+  const vals=dates.map(get); const nums=vals.map(x=>x&&x.v).filter(x=>x!=null);
+  if(!nums.length) return `<div class="small muted">No data yet.</div>`;
+  const lo=opt.min!=null?opt.min:Math.min(...nums)*.9, hi=opt.max!=null?opt.max:Math.max(...nums)*1.05||1;
+  const y=v=>T+(H-T-B)*(1-(v-lo)/((hi-lo)||1));
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label)}">${opt.ref!=null?`<line x1="${L}" x2="${W-R}" y1="${y(opt.ref)}" y2="${y(opt.ref)}" class="now"/>`:""}
+    ${vals.map((p,i)=>{ const cx=L+i*cw+cw/2; if(!p||p.v==null) return `<text x="${cx}" y="${H-B-2}" class="ax sm" text-anchor="middle">·</text>`;
+      const top=y(p.v); return `<g><title>${esc(fmtShort(dates[i])+": "+p.t)}</title><rect x="${cx-bw/2}" y="${top}" width="${bw}" height="${Math.max(2,H-B-top)}" rx="3" style="fill:${p.c||"var(--accent)"}"/></g>`; }).join("")}
+    ${dates.map((d,i)=>i%2===(dates.length-1)%2?`<text x="${L+i*cw+cw/2}" y="${H-5}" class="ax sm ${d===today()?"hi":""}" text-anchor="middle">${parseYmd(d).getDate()}</text>`:"").join("")}
+  </svg>`;
+}
+function stageBar(sl){
+  if(!sl||!sl.staged) return "";
+  const parts=[["deep","Deep","var(--fat)"],["rem","REM","var(--ketone)"],["light","Light","var(--water)"],["awake","Awake","var(--carb)"]];
+  const tot=parts.reduce((t,[k])=>t+(sl[k]||0),0)||1;
+  return `<div class="stagebar">${parts.map(([k,l,c])=>sl[k]?`<span style="width:${(sl[k]/tot*100).toFixed(1)}%;background:${c}" title="${l} ${fmtMin(sl[k])}"></span>`:"").join("")}</div>
+  <div class="legend">${parts.map(([k,l,c])=>`<span><i class="sw" style="background:${c}"></i>${l} <b class="num">${fmtMin(sl[k]||0)}</b>${k!=="awake"?` <span class="muted">${Math.round((sl[k]||0)/Math.max(1,sl.asleep)*100)}%</span>`:""}</span>`).join("")}</div>`;
+}
+const bodyUi={date:null, coachBusy:false, coachErr:""};
+function bodyConnectHtml(){
+  if(WEB) return vitals().length?"":`<div class="panel"><div class="eyebrow">Watch data</div><div class="small">Your watch data comes from the phone app. Open it on your phone, go to the Body tab and tap <b>Connect watch data</b>. It shows up here after the phone syncs.</div></div>`;
+  if(!window.NATIVE) return `<div class="panel"><div class="small">Watch data needs the Android app.</div></div>`;
+  if(!vitPlugin()) return `<div class="panel"><div class="eyebrow">One-time update</div><div class="small">Reading your watch's heart rate, sleep and workouts needs the newest app install. Open <b>Setup</b> and tap <b>Get the new install</b> (or Check for updates first). Your log stays as it is.</div></div>`;
+  const on=lsGet("lk-vit-on",false);
+  if(!on) return `<div class="panel"><div class="eyebrow">Connect your Galaxy Watch</div><div class="small">The app reads heart rate, resting heart rate, HRV, sleep stages, workouts, calories, blood oxygen and breathing rate that Samsung Health puts into Health Connect. Allow them all on the next screen.</div><button class="primary" id="vConnect">Connect watch data</button><div class="small muted">In Samsung Health, open Settings, then Health Connect, and make sure heart rate, sleep and exercise are allowed to sync.</div></div>`;
+  return "";
+}
+function vitStatusHtml(){
+  if(!vitPlugin()||!lsGet("lk-vit-on",false)) return "";
+  const i=vitInfo||{}; const miss=Object.keys(VIT_LABEL).filter(k=>i.found&&!i.found[k]);
+  const notAllowed=Object.entries(i.errs||{}).filter(([k,e])=>e==="not allowed").map(([k])=>VIT_LABEL[k]);
+  return `<div class="panel"><div class="eyebrow">Watch connection</div>
+    <div class="small">${i.at?`Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:"Not read yet."} It reads again on its own each time you open the app.</div>
+    ${i.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(i.err)}</div>`:""}
+    ${notAllowed.length?`<div class="small" style="color:var(--warn)">Not allowed yet: ${esc(notAllowed.join(", "))}. Tap Allow more to turn them on.</div>`:""}
+    ${i.found&&miss.length?`<div class="small muted">Samsung Health hasn't sent: ${esc(miss.map(k=>VIT_LABEL[k]).join(", "))}. Some of these (often HRV) Samsung keeps to itself; the scores use whatever arrives.</div>`:""}
+    <div class="row" style="gap:8px"><button id="vSync">Sync watch now</button><button id="vAllow">Allow more</button><button id="vHc">Health Connect settings</button></div></div>`;
+}
+function coachHtml(){
+  const c=view().coach; const has=!!(c&&c.made);
+  const busy=bodyUi.coachBusy;
+  const list=(a,cls)=>(a||[]).map(x=>`<li class="${cls}"><b>${esc(x.title||"")}</b>${x.detail?` ${esc(x.detail)}`:""}${x.fix?`<div class="fix"><span class="eyebrow">Fix</span> ${esc(x.fix)}</div>`:""}</li>`).join("");
+  return `<div class="hud coach">
+    <div class="spread"><div><div class="eyebrow">AI coach · watch + food + training</div><h2>How it's going</h2></div>${has?`<span class="small muted">${esc(fmtShort(c.date))}</span>`:""}</div>
+    ${has?`${c.headline?`<div class="banner">${esc(c.headline)}</div>`:""}
+      ${(c.right||[]).length?`<div><div class="eyebrow" style="color:var(--good)">Doing right</div><ul class="clist">${list(c.right,"ok")}</ul></div>`:""}
+      ${(c.wrong||[]).length?`<div><div class="eyebrow" style="color:var(--bad)">Holding you back</div><ul class="clist">${list(c.wrong,"no")}</ul></div>`:""}
+      ${(c.today||[]).length?`<div><div class="eyebrow">Next 24 hours</div><ul class="tips">${c.today.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}
+      ${c.watch?`<div class="small"><b>What your watch says:</b> ${esc(c.watch)}</div>`:""}
+      ${c.caution?`<div class="small muted">${esc(c.caution)}</div>`:""}`
+    :`<div class="small">Claude looks at the last two weeks of your watch data, food, carbs, protein, water, ketones, lifts and weigh-ins together, and tells you what's working, what's slowing your weight loss, and exactly what to change.</div>`}
+    ${bodyUi.coachErr?`<div class="small" style="color:var(--bad)">${esc(bodyUi.coachErr)}</div>`:""}
+    <button class="primary" id="coachBtn" ${busy?"disabled":""}>${busy?"Claude is looking at your last 2 weeks… (about a minute)":has?"Analyze again with today's data":"Analyze my last 2 weeks"}</button>
+  </div>`;
+}
+function coachData(){
+  const s=settings(), m=model(), t=today(), rows=[];
+  for(let i=13;i>=0;i--){
+    const d=addDays(t,-i), dd=day(d), r=m.rows.find(x=>x.date===d), sc=scores(d), v=sc&&sc.v, k=ketoneOn(d);
+    const tt=totals(dd);
+    rows.push({date:d+(d===t?" (today, still going)":""),
+      food:(dd.foods||[]).length?{kcal:Math.round(tt.kcal),protein:Math.round(tt.p),netCarbs:r1(tt.c),fat:Math.round(tt.f),items:(dd.foods||[]).length,lateMeals:(dd.foods||[]).filter(f=>f.ts&&new Date(f.ts).getHours()>=20).length}:"not logged",
+      steps:+dd.steps||null, waterOz:+dd.water||null, weightLb:dd.weight||null, ketones:k?k.level:null,
+      appBurnEstimate:r?Math.round(r.burn):null, balance:r&&r.bal!=null?Math.round(r.bal):null,
+      lifts:sessions().filter(x=>x.date===d).map(x=>(WMAP[x.workout]?WMAP[x.workout].name:"Lift")+(x.cardio?` + ${x.cardio.type} ${x.cardio.minutes}m`:"")),
+      otherActivity:activities().filter(a=>a.date===d).map(fmtAct),
+      watch:v?{recovery:sc.rec,strain:sc.strain,restingHr:v.rhr,hrvMs:v.hrv,sleep:v.sleep?{asleep:fmtMin(v.sleep.asleep),bed:hm(v.sleep.s),wake:hm(v.sleep.e),deep:v.sleep.deep,rem:v.sleep.rem,awakeMin:v.sleep.awake,performancePct:sc.perf,needMin:sc.need}:null,
+        spo2:v.spo2,breathing:v.resp,activeKcal:v.active,totalKcal:v.total,minutesAboveHalfMaxHr:(v.zones||[]).reduce((a,b)=>a+b,0),workouts:(v.workouts||[]).map(w=>`${w.name} ${w.min}m avg ${w.avgHr||"?"} max ${w.maxHr||"?"} bpm`)}:null});
+  }
+  return {person:{weightNowLb:r1(m.cur),startWeightLb:s.startWeight,startDate:s.startDate,goalLb:s.goalWeight,heightIn:bodyInfo().h,age:bodyInfo().age,paceLbPerWeek:m.lbWk!=null?r1(m.lbWk):null,avgDailyBalanceKcal:m.avgBal!=null?Math.round(m.avgBal):null},
+    targets:{proteinG:`${s.proteinMin}-${s.protein}`,netCarbsMaxG:s.carbs,fatG:s.fat,waterOz:s.water,lifts:"4 a week",cardio:"2-3 a week"},days:rows};
+}
+async function runCoach(){
+  bodyUi.coachBusy=true; bodyUi.coachErr=""; render();
+  try{
+    const data=coachData();
+    const prompt=`You are a straight-talking weight-loss coach for Nathan. He is on tirzepatide (a GLP-1 medicine, which cuts appetite), eating keto, lifting 4 days a week, and wears a Samsung Galaxy Watch. He wants to lose fat (not muscle) as fast as is healthy. Lives in Coralville, Iowa.
+
+Here is the last 14 days from his app as JSON. "watch" is from the Galaxy Watch: recovery 0-100 (from HRV, resting heart rate and sleep vs his own baseline), strain 0-20 (heart-rate load), sleep details. "balance" is the app's calories eaten minus estimated burn (negative = deficit). Days marked "not logged" have no food logged, which is itself worth calling out if common.
+${JSON.stringify(data)}
+
+Look for real patterns across food, sleep, recovery, training and weight. Things that matter on tirzepatide + keto: eating too little protein (muscle loss), eating too little overall (big deficits can stall and cost muscle), dehydration and low electrolytes, poor or short sleep raising hunger and resting heart rate, late meals hurting sleep, training hard on low-recovery days, low daily steps, carb creep, inconsistent logging. Tie claims to specific numbers and dates from the data. If the data is thin, say what to start tracking.
+
+Answer with JSON only, in plain friendly English, no medical jargon, no em dashes:
+{"headline":"one sentence on the big picture",
+ "right":[{"title":"short","detail":"what the numbers show"}],
+ "wrong":[{"title":"short","detail":"what the numbers show and why it slows weight loss","fix":"one concrete action with a number, e.g. 'Add a 40 g protein shake at 3 pm'"}],
+ "today":["2 to 4 specific things to do in the next 24 hours, using today's recovery"],
+ "watch":"1-2 sentences on what his recovery, sleep and heart rate trend say",
+ "caution":"only if something looks medically off (e.g. resting heart rate climbing several days, SpO2 under 92, very low intake), suggest mentioning it to his doctor; else empty string"}
+Give 2 to 4 items in right and 3 to 5 in wrong, most important first.`;
+    const out=await askClaude(prompt);
+    if(!out||!(out.right||out.wrong)) throw {code:"invalid_json"};
+    put("coach",{headline:String(out.headline||""),right:(out.right||[]).slice(0,5),wrong:(out.wrong||[]).slice(0,6),today:(out.today||[]).slice(0,5).map(String),watch:String(out.watch||""),caution:String(out.caution||""),date:today(),made:Date.now()});
+  }catch(e){ bodyUi.coachErr=aiError(e); }
+  bodyUi.coachBusy=false; render();
+}
+function renderBody(){
+  const el=$("#v-body"); const t=today();
+  const date=bodyUi.date&&bodyUi.date<=t?bodyUi.date:t;
+  const sc=scores(date), v=sc&&sc.v;
+  // before the watch has sent anything today, show the last night's scores so the top isn't empty
+  const dates=Array.from({length:14},(_,i)=>addDays(t,i-13));
+  const recTxt=sc&&sc.rec!=null?sc.rec+"%":sc&&sc.calibrating?"…":"—";
+  const recSub=sc&&sc.rec!=null?(sc.band==="good"?"Ready to push":sc.band==="warn"?"Steady day":"Take it easy"):sc&&sc.calibrating?"Learning your baseline (3 nights)":"No data";
+  const slTxt=sc&&sc.perf!=null?sc.perf+"%":"—";
+  const stTxt=sc&&sc.strain!=null?String(sc.strain):"—";
+  const cons=sleepConsistency(date);
+  el.innerHTML=`
+  ${bodyConnectHtml()}
+  <div class="hud">
+    <div class="spread"><div><div class="eyebrow">Body · ${date===t?"today":fmtDate(date)}</div><h2>Recovery & effort</h2></div>
+      <div class="row" style="gap:4px"><button class="ghost" id="bPrev" aria-label="Day before">‹</button>${date!==t?`<button class="ghost" id="bToday">Today</button>`:""}<button class="ghost" id="bNext" aria-label="Next day" ${date>=t?"disabled":""}>›</button></div></div>
+    <div class="gauges">
+      ${gauge(sc&&sc.perf,"Sleep",slTxt,sc&&sc.sleep?fmtMin(sc.sleep.asleep)+" of "+fmtMin(sc.need):"no sleep data","var(--fat)")}
+      ${gauge(sc&&sc.rec,"Recovery",recTxt,recSub,bandColor(sc&&sc.band))}
+      ${gauge(sc&&sc.strain!=null?sc.strain*5:null,"Strain",stTxt,sc?`aim ${sc.target[0]}-${sc.target[1]} today`:"no heart data","var(--accent)")}
+    </div>
+    ${sc&&sc.why.length?`<div class="small muted">${sc.rec!=null?"Recovery from ":""}${esc(sc.why.join(" · "))}.</div>`:""}
+    ${v?`<div class="readouts">
+      <div class="ro"><div class="k">Resting HR</div><div class="v num">${v.rhr??"—"}</div><div class="u">${v.rhr?`bpm${sc.bR?` · usual ${Math.round(sc.bR)}`:""}`:"not sent"}</div></div>
+      <div class="ro"><div class="k">HRV</div><div class="v num">${v.hrv??"—"}</div><div class="u">${v.hrv?`ms${sc.bH?` · usual ${Math.round(sc.bH)}`:""}`:"not sent"}</div></div>
+      <div class="ro"><div class="k">Blood O₂</div><div class="v num">${v.spo2!=null?v.spo2+"%":"—"}</div><div class="u">${v.spo2Min!=null?"low "+v.spo2Min+"%":"overnight"}</div></div>
+      <div class="ro"><div class="k">Breathing</div><div class="v num">${v.resp??"—"}</div><div class="u">${v.resp?"per min asleep":"not sent"}</div></div>
+      <div class="ro"><div class="k">Avg HR</div><div class="v num">${v.hrAvg??"—"}</div><div class="u">${v.hrMax?"max "+v.hrMax:"bpm"}</div></div>
+      <div class="ro"><div class="k">Active burn</div><div class="v num">${v.active?fmtK(v.active):"—"}</div><div class="u">${v.active?"kcal (watch)":"not sent"}</div></div>
+      <div class="ro"><div class="k">Steps</div><div class="v num">${day(date).steps?fmtK(day(date).steps):"—"}</div><div class="u">from steps sync</div></div>
+      <div class="ro"><div class="k">Weight</div><div class="v num">${day(date).weight??"—"}</div><div class="u">${day(date).weightSrc?"from Samsung":"lb"}</div></div>
+    </div>`:""}
+  </div>
+
+  ${coachHtml()}
+
+  ${v&&v.sleep?`<div class="hud">
+    <div class="spread"><div><div class="eyebrow">Last night</div><h2>Sleep</h2></div><span class="tag ${sc.perf>=85?"good":sc.perf>=70?"warn":"bad"}"><i></i>${sc.perf}% of need</span></div>
+    <div class="stats">
+      <div class="stat"><div class="v num" style="font-size:18px">${fmtMin(v.sleep.asleep)}</div><div class="k">Asleep</div></div>
+      <div class="stat"><div class="v num" style="font-size:18px">${hm(v.sleep.s)}</div><div class="k">Bed</div></div>
+      <div class="stat"><div class="v num" style="font-size:18px">${hm(v.sleep.e)}</div><div class="k">Up</div></div>
+    </div>
+    ${stageBar(v.sleep)}
+    <div class="small muted">Needed about ${fmtMin(sc.need)} (7.5 h base${sc.need>450?", plus extra for yesterday's effort or recent short nights":""}). ${v.sleep.inBed?`In bed ${fmtMin(v.sleep.inBed)}, so ${Math.round(v.sleep.asleep/v.sleep.inBed*100)}% of that time asleep.`:""}${v.sleep.naps?` Naps: ${fmtMin(v.sleep.naps)}.`:""}${cons?` Bed and wake times over the last ${cons.n} nights vary by about ${cons.spread} minutes (${cons.pct}% consistent).`:""}${v.sleep.low?` Lowest heart rate asleep: ${v.sleep.low} bpm.`:""}</div>
+  </div>`:""}
+
+  ${v&&(v.hr96||[]).some(x=>x>0)?`<div class="hud">
+    <div class="spread"><div><div class="eyebrow">${date===t?"Today so far":fmtDate(date)}</div><h2>Heart rate & effort</h2></div><span class="tag"><i></i>Strain ${sc.strain??"—"}</span></div>
+    ${hrDayChart(v,date)}
+    <div class="legend"><span><i class="sw" style="background:color-mix(in srgb,var(--fat) 22%,transparent)"></i>Asleep</span><span><i class="sw" style="background:color-mix(in srgb,var(--accent) 25%,transparent)"></i>Workout</span></div>
+    <div class="zones">${["50-60%","60-70%","70-80%","80-90%","90%+"].map((z,i)=>`<div><div class="zbar"><span style="height:${Math.min(100,(v.zones[i]||0)/Math.max(30,...v.zones)*100)}%"></span></div><div class="ax num">${Math.round(v.zones[i]||0)}m</div><div class="small muted">${z}</div></div>`).join("")}</div>
+    <div class="small muted">Minutes in each heart-rate zone (percent of your estimated max of ${maxHr()} bpm). Strain is 0-20: under 8 is a rest day, 10-14 a solid training day, 15+ hard. ${sc.rec!=null?`With ${sc.rec}% recovery, aim for ${sc.target[0]}-${sc.target[1]} today.`:""}${v.cover<240&&date<t?" The watch only sent a few hours of heart rate this day, so strain reads low.":""}</div>
+    ${(v.workouts||[]).length?`<ul class="wlist">${v.workouts.map(w=>`<li><div><b>${esc(w.name)}</b> <span class="muted small">${hm(w.s)} · ${w.min} min</span></div><div class="small num">${w.avgHr?`avg ${w.avgHr} · max ${w.maxHr} bpm`:""}${w.kcal?` · ${fmtK(w.kcal)} kcal`:""} · strain +${strainOf(w.trimp)}</div></li>`).join("")}</ul>`:""}
+  </div>`:""}
+
+  <div class="hud">
+    <div class="spread"><div><div class="eyebrow">Last 14 days</div><h2>Trends</h2></div></div>
+    <div class="trend"><div class="spread"><span class="eyebrow">Recovery</span><span class="small muted">green 67+ · amber 34-66 · red under 34</span></div>
+      ${trendBars(dates,d=>{ const s=scores(d); return s&&s.rec!=null?{v:s.rec,t:s.rec+"%",c:bandColor(s.band)}:null; },{min:0,max:100,label:"Recovery by day"})}</div>
+    <div class="trend"><div class="spread"><span class="eyebrow">Sleep</span><span class="small muted">dashed line = 7.5 h</span></div>
+      ${trendBars(dates,d=>{ const x=vitOn(d); return x&&x.sleep?{v:x.sleep.asleep/60,t:fmtMin(x.sleep.asleep),c:"var(--fat)"}:null; },{min:0,max:10,ref:7.5,label:"Hours asleep by day"})}</div>
+    <div class="trend"><div class="spread"><span class="eyebrow">Strain</span></div>
+      ${trendBars(dates,d=>{ const x=vitOn(d); return x&&x.trimp!=null&&x.cover>0?{v:strainOf(x.trimp),t:"strain "+strainOf(x.trimp)}:null; },{min:0,max:20,label:"Strain by day"})}</div>
+    <div class="trend"><div class="spread"><span class="eyebrow">Resting heart rate</span><span class="small muted">lower is better as you get fitter</span></div>
+      ${trendBars(dates,d=>{ const x=vitOn(d); return x&&x.rhr?{v:x.rhr,t:x.rhr+" bpm",c:"var(--protein)"}:null; },{label:"Resting heart rate by day"})}</div>
+    ${vitals().some(x=>x.hrv)?`<div class="trend"><div class="spread"><span class="eyebrow">HRV</span><span class="small muted">higher is better</span></div>
+      ${trendBars(dates,d=>{ const x=vitOn(d); return x&&x.hrv?{v:x.hrv,t:x.hrv+" ms",c:"var(--ketone)"}:null; },{label:"HRV by day"})}</div>`:""}
+    <div class="small muted">Scores compare you with your own last 4 weeks, so they get sharper after a week or two of wearing the watch to bed. This isn't medical advice; your doctor knows your tirzepatide dose and health best.</div>
+  </div>
+  ${vitStatusHtml()}`;
+  const go=d=>{ bodyUi.date=d; render(); };
+  $("#bPrev",el).onclick=()=>go(addDays(date,-1));
+  const nx=$("#bNext",el); if(nx) nx.onclick=()=>go(addDays(date,1)>=t?null:addDays(date,1));
+  const td=$("#bToday",el); if(td) td.onclick=()=>go(null);
+  $("#coachBtn",el).onclick=runCoach;
+  const V=vitPlugin();
+  const ask=async b=>{ b.disabled=true; b.textContent="Opening Health Connect…";
+    try{ const r=await V.requestPermission(); const g=(r&&r.granted)||[];
+      if(g.length){ lsSet("lk-vit-on",true); toast("Reading your watch data…"); const n=await vitSync(true); toast(n?`Watch data added for ${n} day${n>1?"s":""}`:"Connected. No watch data found yet"); }
+      else toast(r&&r.available===false?"Health Connect wasn't found on this phone":"Nothing was allowed. You can allow it in Health Connect settings"); }
+    catch(e){ toast("Couldn't connect: "+String((e&&e.message)||e)); }
+    render(); };
+  const c=$("#vConnect",el); if(c) c.onclick=()=>ask(c);
+  const al=$("#vAllow",el); if(al) al.onclick=()=>ask(al);
+  const sy=$("#vSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Reading…"; try{ const n=await vitSync(true); toast(n?`Watch data updated for ${n} day${n>1?"s":""}`:"Watch data is up to date"); }catch(e){ toast("Couldn't read watch data: "+e); } render(); };
+  const hc=$("#vHc",el); if(hc) hc.onclick=()=>{ const H=hcPlugin(); if(H&&H.openHealthConnectSettings) H.openHealthConnectSettings().catch(()=>{}); };
+}
+function bodyMini(){
+  const t=today(); const sc=scores(t)||scores(addDays(t,-1)); if(!sc) return "";
+  return `<button class="panel bodymini" id="toBody"><span class="eyebrow">Watch · ${sc.v.date===t?"today":"yesterday"}</span><span class="row" style="gap:14px">
+    <span><b class="num" style="color:${bandColor(sc.band)}">${sc.rec!=null?sc.rec+"%":"—"}</b> <span class="small muted">recovery</span></span>
+    <span><b class="num">${sc.sleep?fmtMin(sc.sleep.asleep):"—"}</b> <span class="small muted">sleep</span></span>
+    <span><b class="num">${sc.strain??"—"}</b> <span class="small muted">strain</span></span></span><span class="small muted">Tap for details and your AI coach</span></button>`;
+}
 
 /* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */
 const CLOUD={url:"https://glgytlzwmgemouzqasrh.supabase.co",key:"sb_publishable_p1viGgFCqRLwEAhjUG65jQ_1oaNkQmJ"}; // project URL and publishable key (both public by design)
@@ -1967,7 +2360,7 @@ async function cloudPull(token){
 async function cloudPush(token){
   const all=view();
   // anything on this phone the account has never seen goes up too
-  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-)/.test(id)||id==="settings"||id==="bible"||id==="plan")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
+  for(const id of Object.keys(all)){ if(!(id in cloudMeta)&&(/^(s-|d-|a-|k-|i-|w-)/.test(id)||id==="settings"||id==="bible"||id==="plan"||id==="coach")){ cloudMeta[id]=Date.now(); cloudQ[id]=cloudMeta[id]; } }
   const ids=Object.keys(cloudQ); if(!ids.length) return 0;
   const sent={...cloudQ};
   for(let i=0;i<ids.length;i+=200){
@@ -2091,7 +2484,7 @@ let foodDate = today();
 let pick = null;
 let quick = null, quickData = {};                // workout picked to preview (defaults to next)
 function saveDraft(){ lsSet(DRAFT,draft); }
-function setTab(t){ ui.tab=t; lsSet(UI,ui); document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("sel",b.dataset.tab===t)); ["status","train","food","find","bible","log","more"].forEach(x=>$("#v-"+x).hidden=x!==t); render(); window.scrollTo(0,0); }
+function setTab(t){ ui.tab=t; lsSet(UI,ui); document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("sel",b.dataset.tab===t)); ["status","train","food","body","find","bible","log","more"].forEach(x=>$("#v-"+x).hidden=x!==t); render(); window.scrollTo(0,0); }
 document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 
 /* ---------- Render: Train ---------- */
@@ -2941,7 +3334,7 @@ function renderStatus(){
   const nw=WMAP[nextWorkoutId()];
   const liftedToday=sessions().find(x=>x.date===today());
   const st=(v,lim)=>v>lim?"bad":v>lim*.8?"warn":"good";
-  el.innerHTML=`
+  el.innerHTML=`${bodyMini()}
   <div class="hud">
     <div class="spread"><div><div class="eyebrow">Today · ${fmtDate(today())}</div><h2>Daily readout</h2></div><span class="tag ${tr.t.c>s.carbs?"bad":"good"}"><i></i>${tr.t.c>s.carbs?"Over carb limit":"Keto range"}</span></div>
     <div class="readouts">
@@ -3008,6 +3401,7 @@ function renderStatus(){
   el.querySelectorAll("[data-klev]").forEach(b=>b.onclick=()=>saveKetone(b.dataset.klev,"manual"));
   el.querySelectorAll("[data-kdel]").forEach(b=>b.onclick=()=>{put(b.dataset.kdel,null);toast("Reading deleted")});
   $("#planBtn",el).onclick=()=>buildPlan(m,w);
+  const tb=$("#toBody",el); if(tb) tb.onclick=()=>setTab("body");
   bindPlanSetup(el);
 }
 function planSetupHtml(){
@@ -3334,7 +3728,7 @@ function render(){
   const a=document.activeElement, v=$("#v-"+t);
   if((t==="food"||t==="find"||t==="status")&&a&&v&&v.contains(a)&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&!/checkbox|file|date/.test(a.type)))){ deferred=true; return; }
   deferred=false;
-  if(t==="status") renderStatus(); else if(t==="train") renderTrain(); else if(t==="food") renderFood(); else if(t==="find") renderFind(); else if(t==="bible") renderBible(); else if(t==="log") renderLog(); else renderMore();
+  if(t==="status") renderStatus(); else if(t==="train") renderTrain(); else if(t==="food") renderFood(); else if(t==="body") renderBody(); else if(t==="find") renderFind(); else if(t==="bible") renderBible(); else if(t==="log") renderLog(); else renderMore();
 }
 document.addEventListener("focusout",()=>{ if(deferred) setTimeout(()=>{ if(deferred&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)&&$("#v-"+ui.tab).contains(document.activeElement))) render(); },0); });
 // keep "today" fresh if the app stays open past midnight

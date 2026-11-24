@@ -19,6 +19,14 @@ and the daily plan. All log data stays on the phone.
   A new APK install resets to its bundled copy. (v1 used document.write, which
   broke the native bridge; do not go back to that.)
 
+## Watch insights (Body tab)
+
+`android/.../VitalsPlugin.kt` ("Vitals") reads heart rate (binned per minute), resting HR, HRV,
+sleep stages, workouts, calories, SpO2, breathing rate, weight and body fat from Health Connect.
+`app.html` (vitSync / vitDigest) turns each day into a synced `w-YYYY-MM-DD` doc; recovery,
+strain and sleep scores are computed from those docs when the Body tab draws, so the web portal
+shows the same thing. The AI coach result is the synced doc `coach`.
+
 ## Making a change (most changes)
 
 1. Edit `web/app.html`.

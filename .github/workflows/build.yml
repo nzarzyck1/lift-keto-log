@@ -3,6 +3,8 @@ name: Build and publish
 on:
   push:
     branches: [main]
+  pull_request:
+    paths: ["android/**", "src/native.js", "package.json", "package-lock.json", "capacitor.config.json", "shell-version.txt"]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +19,7 @@ concurrency:
 jobs:
   # Fast path: the app screens. The phone app downloads these on its next launch.
   pages:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -42,6 +45,7 @@ jobs:
 
   # Slow path: the Android install file. Only published when shell-version.txt goes up.
   android:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,3 +93,20 @@ jobs:
           gh release create "v${{ steps.ver.outputs.v }}" lift-keto-log.apk \
             --title "Lift + Keto app install ${{ steps.ver.outputs.v }}" \
             --notes "Install this on your phone. Day-to-day changes arrive inside the app without reinstalling." --latest
+
+  # Pull requests that touch the Android side: check that a test APK still builds. Publishes nothing.
+  android-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Build a test APK
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+          cd android && ./gradlew --no-daemon assembleDebug
