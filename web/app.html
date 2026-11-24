@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="29">
+<meta name="app-version" content="30">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1795,10 +1795,13 @@ function addWater(date,delta){ const dd=day(date); const man=Math.max(0,waterMan
 /* Watch water straight from Samsung Health (app install 5+, needs Samsung Health's developer mode for data read) */
 const swPlugin=()=>window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("SamsungWater")?Capacitor.Plugins.SamsungWater:null;
 const SW_HELP="In Samsung Health: tap the 3 dots, Settings, About Samsung Health. Tap the version number 10 times, choose Developer mode (Samsung Health Data SDK), accept, and turn on Developer Mode for Data Read. Then come back and tap Connect.";
+// a read that never answers must not leave the buttons stuck on Syncing…
+const timeLimit=(p,ms,what)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(what+" didn't answer within "+Math.round(ms/1000)+" seconds")),ms))]);
 function swErrText(r){ const m=String((r&&(r.error||r.message))||r||"");
   if(/Authoriz|signature|registered|partner|not allowed|2000|developer/i.test(m+" "+((r&&r.kind)||""))) return "Samsung Health turned the app away. Developer Mode for Data Read is probably off. "+SW_HELP;
   if(/not installed|old version|disabled|not initialized/i.test(m)) return "Samsung Health needs attention first ("+m+"). Open Samsung Health, finish any setup or update, then try again.";
-  return m||"unknown error"; }
+  const k=r&&r.kind&&!/HealthDataException/.test(r.kind)?r.kind+": ":"";
+  return (k+m)||"unknown error"; }
 function waterSync(manual){
   const W=waterPlugin(), SWp=swPlugin(), hcOn=!!W&&lsGet("lk-water-on",false), swOn=!!SWp&&lsGet("lk-swater-on",false);
   if(!hcOn&&!swOn) return Promise.resolve(0);
@@ -1807,10 +1810,10 @@ function waterSync(manual){
   if(!manual&&Date.now()-last<4*60000) return Promise.resolve(0);
   waterBusy=(async()=>{
     const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-(manual||!last?13:1));
-    const r=hcOn?await W.readRecords({startDate:start.toISOString(),endDate:end.toISOString()}):{records:[]};
+    const r=hcOn?await timeLimit(W.readRecords({startDate:start.toISOString(),endDate:end.toISOString()}),45000,"Health Connect"):{records:[]};
     const recs=((r&&r.records)||[]).slice(), t=today(); let swErr="", swN=null;
     if(swOn){ // Samsung's own records go in as Samsung Health, so they win over any other app's water that day
-      const q=await SWp.read({startDate:start.toISOString(),endDate:end.toISOString()}).catch(e=>({ok:false,error:String((e&&e.message)||e)}));
+      const q=await timeLimit(SWp.read({startDate:start.toISOString(),endDate:end.toISOString()}),45000,"Samsung Health").catch(e=>({ok:false,error:String((e&&e.message)||e)}));
       if(q&&q.ok){ swN=(q.records||[]).length; for(const x of q.records||[]) recs.push({startDate:new Date(x.t*1000).toISOString(),liters:(+x.ml||0)/1000,sourceBundleId:SHEALTH}); }
       else swErr=swErrText(q); }
     const sh=recs.filter(x=>x.sourceBundleId===SHEALTH);
@@ -1842,7 +1845,7 @@ function swPanel(){
 function bindSwPanel(el){
   const S=swPlugin(); if(!S) return;
   const c=$("#swConnect",el); if(c) c.onclick=async()=>{ c.disabled=true; c.textContent="Asking Samsung Health…";
-    const r=await S.requestPermission().catch(e=>({ok:false,error:String((e&&e.message)||e)}));
+    const r=await timeLimit(S.requestPermission(),120000,"Samsung Health").catch(e=>({ok:false,error:String((e&&e.message)||e)}));
     if(r&&r.ok&&r.granted){ lsSet("lk-swater-on",true); const n=await waterSync(true); toast(waterInfo&&waterInfo.swErr?"Connected, but reading failed. See Setup.":n?`Water updated for ${n} day${n>1?"s":""}`:"Watch water connected"); }
     else if(r&&r.ok) toast("Water permission wasn't given in Samsung Health");
     else { waterInfo={...(waterInfo||{}),swErr:swErrText(r)}; lsSet("lk-water-info",waterInfo); toast("Samsung Health said no. See the note in Setup."); }
