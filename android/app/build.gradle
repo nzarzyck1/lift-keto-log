@@ -61,6 +61,8 @@ dependencies {
     // android/samsung/ (Samsung's license doesn't allow sharing it); CI decrypts it into libs/ before building.
     implementation files('libs/samsung-health-data-api-1.1.0.aar')
     implementation 'com.google.code.gson:gson:2.9.0'
+    // The SDK's request classes use Kotlin's Parcelize runtime (missing in install 5: "Failed resolution of ReadDataRequest")
+    implementation 'org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.20'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
