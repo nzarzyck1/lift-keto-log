@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(HydrationPlugin.class);
         registerPlugin(VitalsPlugin.class);
+        registerPlugin(SamsungWaterPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -57,6 +57,10 @@ dependencies {
     implementation 'androidx.health.connect:connect-client:1.2.0-alpha01'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
     implementation "androidx.activity:activity-ktx:$androidxActivityVersion"
+    // Watch water straight from Samsung Health (SamsungWaterPlugin.kt). The SDK file is kept encrypted in
+    // android/samsung/ (Samsung's license doesn't allow sharing it); CI decrypts it into libs/ before building.
+    implementation files('libs/samsung-health-data-api-1.1.0.aar')
+    implementation 'com.google.code.gson:gson:2.9.0'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="25">
+<meta name="app-version" content="28">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -359,8 +359,6 @@ ul.clist li.no{border-left-color:var(--bad)}
 ul.clist .fix{margin-top:6px;font-size:14px}
 ul.clist .fix .eyebrow{color:var(--accent);margin-right:4px}
 .coach{border-top-color:color-mix(in srgb,var(--accent) 60%,var(--line))}
-button.bodymini{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;font-weight:500;width:100%}
-button.bodymini b{font-size:20px}
 /* Web portal on a computer (html.web is set by web.js): tabs become a left rail, wider column. */
 @media (min-width:900px){
 html.web{--rail:216px}
@@ -1776,6 +1774,14 @@ let lastSyncErr=null;
 // Use that number, so the app matches Samsung Health. Fall back to every app's
 // total only if Samsung Health hasn't written anything.
 const SHEALTH="com.sec.android.app.shealth";
+const APPNAMES={"com.sec.android.app.shealth":"Samsung Health","com.fitbit.FitbitMobile":"Google Health (Fitbit)","com.google.android.apps.fitness":"Google Fit","com.google.android.apps.healthdata":"Health Connect","com.nathan.liftketo":"This app"};
+const appName=p=>APPNAMES[p]||(p?String(p).split(".").slice(-1)[0]:"Other");
+// Pick one device's number per day, never adding two together: Samsung Health first, else the app with the most
+function perDayBest(recs,val){
+  const by={}; for(const x of recs){ const d=ymd(new Date(x.startDate)), k=x.sourceBundleId||"?"; ((by[d]=by[d]||{})[k]=(by[d][k]||0)+val(x)); }
+  const out={}, src={}; for(const [d,g] of Object.entries(by)){ const k=g[SHEALTH]>0?SHEALTH:Object.keys(g).sort((a,b)=>g[b]-g[a])[0]; out[d]=g[k]; src[d]=k; }
+  return {out,src};
+}
 let hcReady=false, stepBusy=null, stepInfo=lsGet("lk-steps-info",null);
 const hcPlugin=()=>window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.HealthPlugin;
 /* Water: Samsung Health (watch) writes hydration into Health Connect; read it with the app's own Hydration plugin (shell v3+). */
@@ -1786,17 +1792,29 @@ function waterManual(dd){ return dd.waterHC==null?(+dd.water||0):(+dd.waterAdj||
 function setWater(date,patch){ const dd=day(date); put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],...patch}); }
 function addWater(date,delta){ const dd=day(date); const man=Math.max(0,waterManual(dd)+delta);
   if(dd.waterHC==null) setWater(date,{water:man}); else setWater(date,{water:Math.round((+dd.waterHC||0)+man),waterAdj:man}); }
+/* Watch water straight from Samsung Health (app install 5+, needs Samsung Health's developer mode for data read) */
+const swPlugin=()=>window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("SamsungWater")?Capacitor.Plugins.SamsungWater:null;
+const SW_HELP="In Samsung Health: tap the 3 dots, Settings, About Samsung Health. Tap the version number 10 times, choose Developer mode (Samsung Health Data SDK), accept, and turn on Developer Mode for Data Read. Then come back and tap Connect.";
+function swErrText(r){ const m=String((r&&(r.error||r.message))||r||"");
+  if(/Authoriz|signature|registered|partner|not allowed|2000|developer/i.test(m+" "+((r&&r.kind)||""))) return "Samsung Health turned the app away. Developer Mode for Data Read is probably off. "+SW_HELP;
+  if(/not installed|old version|disabled|not initialized/i.test(m)) return "Samsung Health needs attention first ("+m+"). Open Samsung Health, finish any setup or update, then try again.";
+  return m||"unknown error"; }
 function waterSync(manual){
-  const W=waterPlugin(); if(!W||!lsGet("lk-water-on",false)) return Promise.resolve(0);
+  const W=waterPlugin(), SWp=swPlugin(), hcOn=!!W&&lsGet("lk-water-on",false), swOn=!!SWp&&lsGet("lk-swater-on",false);
+  if(!hcOn&&!swOn) return Promise.resolve(0);
   if(waterBusy) return waterBusy;
   const last=(waterInfo&&waterInfo.at)||0;
   if(!manual&&Date.now()-last<4*60000) return Promise.resolve(0);
   waterBusy=(async()=>{
     const end=new Date(), start=new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate()-(manual||!last?13:1));
-    const r=await W.readRecords({startDate:start.toISOString(),endDate:end.toISOString()});
-    const recs=(r&&r.records)||[], t=today();
-    const sh=recs.filter(x=>x.sourceBundleId===SHEALTH), use=sh.length?sh:recs;
-    const perDay={}; for(const x of use){ const d=ymd(new Date(x.startDate)); perDay[d]=(perDay[d]||0)+(+x.liters||0)*OZ_PER_L; }
+    const r=hcOn?await W.readRecords({startDate:start.toISOString(),endDate:end.toISOString()}):{records:[]};
+    const recs=((r&&r.records)||[]).slice(), t=today(); let swErr="", swN=null;
+    if(swOn){ // Samsung's own records go in as Samsung Health, so they win over any other app's water that day
+      const q=await SWp.read({startDate:start.toISOString(),endDate:end.toISOString()}).catch(e=>({ok:false,error:String((e&&e.message)||e)}));
+      if(q&&q.ok){ swN=(q.records||[]).length; for(const x of q.records||[]) recs.push({startDate:new Date(x.t*1000).toISOString(),liters:(+x.ml||0)/1000,sourceBundleId:SHEALTH}); }
+      else swErr=swErrText(q); }
+    const sh=recs.filter(x=>x.sourceBundleId===SHEALTH);
+    const perDay=perDayBest(recs,x=>(+x.liters||0)*OZ_PER_L).out;
     let n=0;
     for(const [date,oz] of Object.entries(perDay)){
       if(date>t) continue; const hc=Math.round(oz); const dd=day(date);
@@ -1804,25 +1822,50 @@ function waterSync(manual){
       const man=dd.waterHC==null?0:(+dd.waterAdj||0);
       if(dd.waterHC!==hc||Math.round(hc+man)!==(+dd.water||0)){ setWater(date,{waterHC:hc,waterAdj:man,water:Math.round(hc+man)}); n++; }
     }
-    const by={}; for(const x of recs){ if(ymd(new Date(x.startDate))!==t) continue; const k=x.sourceBundleId===SHEALTH?"Samsung Health":(x.sourceBundleId||"Other"); by[k]=(by[k]||0)+(+x.liters||0)*OZ_PER_L; }
-    waterInfo={at:Date.now(),src:sh.length?"Samsung Health":recs.length?"Health Connect":"none",err:"",n:recs.length,days:Object.keys(perDay).length,by,from:start.toISOString()}; lsSet("lk-water-info",waterInfo);
+    const by={}; for(const x of recs){ if(ymd(new Date(x.startDate))!==t) continue; const k=appName(x.sourceBundleId); by[k]=(by[k]||0)+(+x.liters||0)*OZ_PER_L; }
+    waterInfo={at:Date.now(),swErr,swN,src:sh.length?"Samsung Health":recs.length?[...new Set(recs.map(x=>appName(x.sourceBundleId)))].join(", "):"none",err:"",n:recs.length,days:Object.keys(perDay).length,by,from:start.toISOString()}; lsSet("lk-water-info",waterInfo);
     return n;
   })().catch(e=>{ waterInfo={...(waterInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-water-info",waterInfo); return 0; })
     .finally(()=>{ waterBusy=null; });
   return waterBusy;
 }
+function swPanel(){
+  if(!swPlugin()) return "";
+  const on=lsGet("lk-swater-on",false), i=waterInfo||{};
+  return `<div class="panel"><div class="eyebrow">Watch water (Samsung Health)</div>
+    <div class="small">${on?`Connected. Water you log on your Galaxy Watch or in Samsung Health fills in on the Food tab by itself${i.swN!=null?` (last read found <b>${i.swN}</b> entr${i.swN===1?"y":"ies"} over 2 weeks)`:""}.`:"Samsung Health doesn't share water with other apps, so this reads it straight from Samsung Health. It needs Samsung Health's developer mode turned on once."}</div>
+    ${on&&i.swErr?`<div class="small" style="color:var(--warn)">${esc(i.swErr)}</div>`:""}
+    ${!on?`<div class="small muted">${esc(SW_HELP)}</div>`:""}
+    <div class="row" style="gap:8px">${on?`<button id="swSync">Sync water now</button><button id="swOff">Turn off</button>`:`<button class="primary" id="swConnect">Connect watch water</button>`}</div>
+    <div class="small muted">Samsung says developer mode is for testing, so a future Samsung Health update could switch it off. The + water buttons always work.</div></div>`;
+}
+function bindSwPanel(el){
+  const S=swPlugin(); if(!S) return;
+  const c=$("#swConnect",el); if(c) c.onclick=async()=>{ c.disabled=true; c.textContent="Asking Samsung Health…";
+    const r=await S.requestPermission().catch(e=>({ok:false,error:String((e&&e.message)||e)}));
+    if(r&&r.ok&&r.granted){ lsSet("lk-swater-on",true); const n=await waterSync(true); toast(waterInfo&&waterInfo.swErr?"Connected, but reading failed. See Setup.":n?`Water updated for ${n} day${n>1?"s":""}`:"Watch water connected"); }
+    else if(r&&r.ok) toast("Water permission wasn't given in Samsung Health");
+    else { waterInfo={...(waterInfo||{}),swErr:swErrText(r)}; lsSet("lk-water-info",waterInfo); toast("Samsung Health said no. See the note in Setup."); }
+    render(); };
+  const sy=$("#swSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Syncing…"; const n=await waterSync(true); toast(waterInfo&&waterInfo.swErr?"Couldn't read watch water":n?`Water updated for ${n} day${n>1?"s":""}`:"Water is up to date"); render(); };
+  const off=$("#swOff",el); if(off) off.onclick=()=>{ lsSet("lk-swater-on",false); toast("Watch water turned off"); render(); };
+}
 function waterPanel(){
+  return swPanel()+hcWaterPanel();
+}
+function hcWaterPanel(){
   if(!waterPlugin()) return "";
   const on=lsGet("lk-water-on",false);
-  return `<div class="panel"><div class="eyebrow">Samsung Health water</div>
-    <div class="small">${on?`Connected. Water you log on your watch fills in on its own${waterInfo&&waterInfo.at?` (last read ${new Date(waterInfo.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`:""}.`:"Connect once and the water you log on your watch shows up on the Food tab by itself."}</div>
+  return `<div class="panel"><div class="eyebrow">Water from other apps</div>
+    <div class="small">${on?`Connected. Water logged in apps that share it fills in on its own${waterInfo&&waterInfo.at?` (last read ${new Date(waterInfo.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`:""}.`:"Connect once and water logged in apps that share it (like Google Health) shows up on the Food tab by itself."}</div>
     ${waterInfo&&waterInfo.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(waterInfo.err)}</div>`:""}
     ${on&&waterInfo&&!waterInfo.err&&waterInfo.n!=null?`<div class="small">Last read found <b>${waterInfo.n}</b> water entr${waterInfo.n===1?"y":"ies"} in Health Connect${waterInfo.days?` across ${waterInfo.days} day${waterInfo.days>1?"s":""}`:""}.${Object.keys(waterInfo.by||{}).length?` Today: ${Object.entries(waterInfo.by).map(([k,v])=>`${esc(k)} ${Math.round(v)} oz`).join(" · ")}.`:" None for today."}</div>`:""}
-    ${on&&waterInfo&&waterInfo.n===0?`<div class="small" style="color:var(--warn)">Health Connect has no water at all, so Samsung Health isn't sending it. Open Health Connect settings, tap App permissions, then Samsung Health, and turn on Hydration under "Allow to write". Then open Samsung Health once and tap Sync water now.</div>`:""}
+    ${on&&waterInfo&&waterInfo.n===0?`<div class="small" style="color:var(--warn)">No other app has shared any water yet. Samsung Health keeps water to itself (it shares steps, heart, sleep and workouts with Health Connect, but not water), so watch water comes through the Watch water (Samsung Health) panel above instead.</div>`:""}
     <div class="row" style="gap:8px">${on?`<button id="wSync">Sync water now</button><button id="wHc">Health Connect settings</button>`:`<button class="primary" id="wConnect">Connect water</button>`}</div>
-    <div class="small muted">In Samsung Health, open Settings, then Health Connect, and make sure Water intake is allowed to sync.</div></div>`;
+    <div class="small muted">Picks up water from apps that share it through Health Connect, such as Google Health (Fitbit). Samsung Health doesn't share water.</div></div>`;
 }
 function bindWaterPanel(el){
+  bindSwPanel(el);
   const W=waterPlugin(); if(!W) return;
   const c=$("#wConnect",el); if(c) c.onclick=async()=>{ c.disabled=true; c.textContent="Opening Health Connect…";
     try{ const r=await W.requestPermission(); if(r&&r.granted){ lsSet("lk-water-on",true); const n=await waterSync(true); toast(n?`Water updated for ${n} day${n>1?"s":""}`:"Water connected"); } else toast(r&&r.available===false?"Health Connect wasn't found on this phone":"Water permission wasn't given. You can allow it in Health Connect settings"); }
@@ -1852,14 +1895,12 @@ function stepSyncOnly(manual){
     // de-duplicated total can prefer the phone's step counter and drop watch steps.
     const rec=await H.queryRecords({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps"});
     const recs=(rec&&rec.records)||[];
-    const perDay={}, by={}, t=today();
-    const isSH=x=>x.sourceBundleId===SHEALTH;
-    for(const x of recs){
-      const d=ymd(new Date(x.startDate)), v=+x.value||0;
-      if(isSH(x)) perDay[d]=(perDay[d]||0)+v;
-      if(d===t){ const k=isSH(x)?"Samsung Health":(x.sourceName||x.sourceBundleId||"Other"); by[k]=(by[k]||0)+v; }
-    }
-    let src="Samsung Health", days=perDay;
+    const by={}, t=today();
+    for(const x of recs){ if(ymd(new Date(x.startDate))===t){ const k=appName(x.sourceBundleId); by[k]=(by[k]||0)+(+x.value||0); } }
+    // one device per day (Samsung Health when it has steps, else the band's app), so watch + band never double up
+    const best=perDayBest(recs,x=>+x.value||0), perDay=best.out;
+    const srcs=[...new Set(Object.values(best.src))].map(appName);
+    let src=srcs.length?srcs.join(" and "):"Samsung Health", days=perDay;
     if(!Object.keys(perDay).length){
       src="all apps"; days={};
       const r=await H.queryAggregated({startDate:start.toISOString(),endDate:end.toISOString(),dataType:"steps",bucket:"day"});
@@ -1884,7 +1925,7 @@ function stepsPanel(){
   if(!hcPlugin()||!lsGet("lk-hc-on",false)||!stepInfo) return "";
   const parts=Object.entries(stepInfo.by||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${fmtK(v)}`);
   return `<div class="panel"><div class="eyebrow">Where steps come from</div>
-    <div class="small">Using <b>${esc(stepInfo.src)}</b>, so the app matches what Samsung Health shows.${parts.length?` Today in Health Connect: ${parts.join(" · ")}.`:""}</div>
+    <div class="small">Using <b>${esc(stepInfo.src)}</b>, one device per day so a watch and a band never double up.${parts.length?` Today in Health Connect: ${parts.join(" · ")}.`:""}</div>
     ${stepInfo.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(stepInfo.err)}${/quota|rate/i.test(stepInfo.err)?" (Health Connect asks apps to slow down; it clears up on its own within the hour)":""}</div>`:""}
     <div class="small muted">Samsung Health sends steps to Health Connect every so often, so today's count can lag a bit. Opening Samsung Health makes it send right away.</div></div>`;
 }
@@ -1910,35 +1951,41 @@ const fmtMin=m=>m==null?"—":`${Math.floor(m/60)}h ${pad(Math.round(m%60))}m`;
 // Turn one read of Health Connect into per-day summaries for the given dates.
 function vitDigest(raw,dates){
   const SH=x=>(Array.isArray(x)?x[x.length-1]:x.src)===SHEALTH;
-  const pick=a=>{ a=a||[]; const sh=a.filter(SH); return sh.length?sh:a; };
+  // Several devices can write the same thing (Galaxy Watch via Samsung Health, a Fitbit band via Google Health).
+  // Never add two devices together: for each day and each kind of data use Samsung Health if it has some,
+  // otherwise whichever app has the most of it.
+  const srcOf=x=>Array.isArray(x)?x[x.length-1]:x.src;
+  const pick=a=>{ a=a||[]; if(!a.length) return a; const sh=a.filter(SH); if(sh.length) return sh;
+    const g={}; for(const x of a){ const k=srcOf(x)||"?"; (g[k]=g[k]||[]).push(x); } return Object.values(g).sort((x,y)=>y.length-x.length)[0]; };
   const hr=(raw.hr||[]).slice().sort((a,b)=>a[0]-b[0]);
   const hrIn=(s,e)=>{ let lo=0,hi=hr.length; while(lo<hi){ const m=(lo+hi)>>1; if(hr[m][0]<s) lo=m+1; else hi=m; } const out=[]; for(let i=lo;i<hr.length&&hr[i][0]<e;i++) out.push(hr[i]); return out; };
   const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
-  const sleeps=pick(raw.sleep).slice().sort((a,b)=>a.s-b.s);
-  const exs=pick(raw.exercise).slice().sort((a,b)=>a.s-b.s).filter((x,i,a)=>!i||Math.abs(x.s-a[i-1].s)>120);
+  const sleeps=(raw.sleep||[]).slice().sort((a,b)=>a.s-b.s);
+  const exs=[]; for(const x of (raw.exercise||[]).slice().sort((a,b)=>(SH(b)-SH(a))||a.s-b.s)){ // the same workout seen by two devices counts once
+    if(!exs.some(y=>Math.min(x.e,y.e)-Math.max(x.s,y.s)>0.5*Math.min(x.e-x.s,y.e-y.s))) exs.push(x); } exs.sort((a,b)=>a.s-b.s);
   const mx=maxHr(), out={};
   for(const date of dates){
     const s0=dSec(date), s1=dSec(addDays(date,1));
     // the night that ends on this morning counts for this day (anything ending between 6 pm the day before and 6 pm today)
     const cand=sleeps.filter(x=>x.e>s0-6*3600&&x.e<=s0+18*3600);
-    const main=cand.reduce((m,x)=>!m||x.e-x.s>m.e-m.s?x:m,null);
+    const main=cand.reduce((m,x)=>!m||x.e-x.s>m.e-m.s+20*60||(SH(x)&&!SH(m)&&x.e-x.s>=m.e-m.s-20*60)?x:m,null);
     let sleep=null;
     if(main&&main.e-main.s>=45*60){
       const st={light:0,deep:0,rem:0,awake:0,plain:0};
       for(const [a,b,t] of main.stages||[]){ const m=(b-a)/60; if(t===4) st.light+=m; else if(t===5) st.deep+=m; else if(t===6) st.rem+=m; else if(t===1||t===3||t===7) st.awake+=m; else st.plain+=m; }
       const inBed=(main.e-main.s)/60, staged=(main.stages||[]).length>0;
       const asleep=staged?st.light+st.deep+st.rem+st.plain:inBed;
-      const naps=cand.filter(x=>x!==main&&x.s>=main.e).reduce((t,x)=>t+(x.e-x.s)/60,0);
+      const naps=cand.filter(x=>x!==main&&x.src===main.src&&x.s>=main.e).reduce((t,x)=>t+(x.e-x.s)/60,0);
       const shr=hrIn(main.s,main.e).map(x=>x[1]);
       let low=null; for(let i=0;i+5<=shr.length;i++){ const a5=avg(shr.slice(i,i+5)); if(low==null||a5<low) low=a5; }
-      sleep={s:main.s,e:main.e,inBed:Math.round(inBed),asleep:Math.round(asleep),light:Math.round(st.light+st.plain),deep:Math.round(st.deep),rem:Math.round(st.rem),awake:Math.round(st.awake),staged,naps:Math.round(naps),hr:shr.length?Math.round(avg(shr)):null,low:low!=null?Math.round(low):null};
+      sleep={src:appName(main.src),s:main.s,e:main.e,inBed:Math.round(inBed),asleep:Math.round(asleep),light:Math.round(st.light+st.plain),deep:Math.round(st.deep),rem:Math.round(st.rem),awake:Math.round(st.awake),staged,naps:Math.round(naps),hr:shr.length?Math.round(avg(shr)):null,low:low!=null?Math.round(low):null};
     }
     const win=sleep?[sleep.s,sleep.e]:[s0,s0+8*3600];
-    const rr=pick(raw.rhr).filter(x=>x[0]>=s0&&x[0]<s1);
+    const rr=pick((raw.rhr||[]).filter(x=>x[0]>=s0&&x[0]<s1));
     let rhr=rr.length?Math.round(rr[rr.length-1][1]):null, rhrSrc=rr.length?"watch":"";
     if(rhr==null&&sleep&&sleep.low){ rhr=sleep.low; rhrSrc="sleep"; }
-    const hv=pick(raw.hrv).filter(x=>x[0]>=win[0]-3600&&x[0]<=win[1]+3600);
-    const hv2=hv.length?hv:pick(raw.hrv).filter(x=>x[0]>=s0&&x[0]<s1);
+    const hv=pick((raw.hrv||[]).filter(x=>x[0]>=win[0]-3600&&x[0]<=win[1]+3600));
+    const hv2=hv.length?hv:pick((raw.hrv||[]).filter(x=>x[0]>=s0&&x[0]<s1));
     const hrv=hv2.length?Math.round(avg(hv2.map(x=>x[1]))):null;
     const ox=(raw.spo2||[]).filter(x=>x[0]>=win[0]&&x[0]<=win[1]); const ox2=ox.length?ox:(raw.spo2||[]).filter(x=>x[0]>=s0&&x[0]<s1);
     const rs=(raw.resp||[]).filter(x=>x[0]>=win[0]&&x[0]<=win[1]); const rs2=rs.length?rs:(raw.resp||[]).filter(x=>x[0]>=s0&&x[0]<s1);
@@ -1953,12 +2000,12 @@ function vitDigest(raw,dates){
     const workouts=exs.filter(x=>x.s>=s0&&x.s<s1).map(x=>{
       const h=hrIn(x.s,x.e).map(y=>y[1]); let tr=0;
       hrIn(x.s,x.e).forEach((y,i,a)=>{ const dt=Math.min(i+1<a.length?a[i+1][0]-y[0]:60,600)/60; const xx=clamp((y[1]-rest)/(mx-rest),0,1); if(y[1]/mx>=.5) tr+=dt*xx*0.64*Math.exp(1.92*xx); });
-      const kc=pick(raw.active).filter(c=>c[0]>=x.s-60&&c[1]<=x.e+60).reduce((t,c)=>t+c[2],0);
+      const kc=pick((raw.active||[]).filter(c=>c[0]>=x.s-60&&c[1]<=x.e+60)).reduce((t,c)=>t+c[2],0);
       return {name:(x.title&&!/^\d+$/.test(x.title)?x.title:EXTYPE[x.type]||"Workout"),type:x.type,s:x.s,min:Math.round((x.e-x.s)/60),avgHr:h.length?Math.round(avg(h)):null,maxHr:h.length?Math.max(...h):null,trimp:Math.round(tr),kcal:kc?Math.round(kc):null};
     });
-    const act=pick(raw.active).filter(c=>c[0]>=s0&&c[0]<s1).reduce((t,c)=>t+c[2],0);
-    const tot=pick(raw.total).filter(c=>c[0]>=s0&&c[0]<s1).reduce((t,c)=>t+c[2],0);
-    const wt=pick(raw.weight).filter(x=>x[0]>=s0&&x[0]<s1).pop(); const bf=(raw.fat||[]).filter(x=>x[0]>=s0&&x[0]<s1).pop();
+    const act=pick((raw.active||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
+    const tot=pick((raw.total||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
+    const wt=pick((raw.weight||[]).filter(x=>x[0]>=s0&&x[0]<s1)).pop(); const bf=(raw.fat||[]).filter(x=>x[0]>=s0&&x[0]<s1).pop();
     const hrs=dayHr.map(x=>x[1]);
     const doc={kind:"vitals",date,rhr,rhrSrc,hrv,sleep,
       spo2:ox2.length?r1(avg(ox2.map(x=>x[1]))):null, spo2Min:ox2.length?r1(Math.min(...ox2.map(x=>x[1]))):null,
@@ -1981,13 +2028,14 @@ function vitSync(manual){
   const full=manual||!vitInfo||!vitInfo.full||Date.now()-vitInfo.full>12*3600e3;
   vitBusy=(async()=>{
     const t=today(), back=full?29:1; const dates=[]; for(let i=back;i>=0;i--) dates.push(addDays(t,-i));
-    let n=0, errs={}, found={};
+    let n=0, errs={}, found={}, apps={};
     // read a few days at a time so a month of minute-by-minute heart rate never piles up at once
     for(let i=0;i<dates.length;i+=6){
       const chunk=dates.slice(i,i+6);
       const start=new Date((dSec(chunk[0])-30*3600)*1000), end=new Date(Math.min(Date.now(),dSec(addDays(chunk[chunk.length-1],1))*1000));
       const raw=await V.read({startDate:start.toISOString(),endDate:end.toISOString()});
       Object.assign(errs,(raw&&raw.errors)||{});
+      for(const k of ["sleep","exercise","rhr","hrv","active","total","weight"]) for(const x of (raw&&raw[k])||[]){ const p=Array.isArray(x)?x[x.length-1]:x.src; if(typeof p==="string") apps[appName(p)]=1; }
       for(const k of Object.keys(VIT_LABEL)) if(raw&&raw[k]&&raw[k].length) found[k]=(found[k]||0)+raw[k].length;
       const got=vitDigest(raw||{},chunk);
       for(const [date,doc] of Object.entries(got)){
@@ -1996,7 +2044,7 @@ function vitSync(manual){
         const dd=day(date); if(doc.weight&&dd.weight==null) put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],weight:doc.weight,weightSrc:"Samsung Health"});
       }
     }
-    vitInfo={at:Date.now(),full:full?Date.now():(vitInfo&&vitInfo.full)||0,errs,found,err:""}; lsSet("lk-vit-info",vitInfo);
+    vitInfo={at:Date.now(),full:full?Date.now():(vitInfo&&vitInfo.full)||0,errs,found,apps:Object.keys(apps),err:""}; lsSet("lk-vit-info",vitInfo);
     return n;
   })().catch(e=>{ vitInfo={...(vitInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-vit-info",vitInfo); if(manual) throw vitInfo.err; return 0; })
     .finally(()=>{ vitBusy=null; });
@@ -2090,7 +2138,7 @@ function vitStatusHtml(){
   const i=vitInfo||{}; const miss=Object.keys(VIT_LABEL).filter(k=>i.found&&!i.found[k]);
   const notAllowed=Object.entries(i.errs||{}).filter(([k,e])=>e==="not allowed").map(([k])=>VIT_LABEL[k]);
   return `<div class="panel"><div class="eyebrow">Watch connection</div>
-    <div class="small">${i.at?`Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:"Not read yet."} It reads again on its own each time you open the app.</div>
+    <div class="small">${i.at?`Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:"Not read yet."} It reads again on its own each time you open the app.${(i.apps||[]).length?` Data is coming from: <b>${esc(i.apps.join(", "))}</b>. When two devices record the same thing, Samsung Health is used and the other fills days it missed.`:""}</div>
     ${i.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(i.err)}</div>`:""}
     ${notAllowed.length?`<div class="small" style="color:var(--warn)">Not allowed yet: ${esc(notAllowed.join(", "))}. Tap Allow more to turn them on.</div>`:""}
     ${i.found&&miss.length?`<div class="small muted">Samsung Health hasn't sent: ${esc(miss.map(k=>VIT_LABEL[k]).join(", "))}. Some of these (often HRV) Samsung keeps to itself; the scores use whatever arrives.</div>`:""}
@@ -2161,21 +2209,13 @@ function renderBody(){
   const sc=scores(date), v=sc&&sc.v;
   // before the watch has sent anything today, show the last night's scores so the top isn't empty
   const dates=Array.from({length:14},(_,i)=>addDays(t,i-13));
-  const recTxt=sc&&sc.rec!=null?sc.rec+"%":sc&&sc.calibrating?"…":"—";
-  const recSub=sc&&sc.rec!=null?(sc.band==="good"?"Ready to push":sc.band==="warn"?"Steady day":"Take it easy"):sc&&sc.calibrating?"Learning your baseline (3 nights)":"No data";
-  const slTxt=sc&&sc.perf!=null?sc.perf+"%":"—";
-  const stTxt=sc&&sc.strain!=null?String(sc.strain):"—";
   const cons=sleepConsistency(date);
   el.innerHTML=`
   ${bodyConnectHtml()}
   <div class="hud">
     <div class="spread"><div><div class="eyebrow">Body · ${date===t?"today":fmtDate(date)}</div><h2>Recovery & effort</h2></div>
       <div class="row" style="gap:4px"><button class="ghost" id="bPrev" aria-label="Day before">‹</button>${date!==t?`<button class="ghost" id="bToday">Today</button>`:""}<button class="ghost" id="bNext" aria-label="Next day" ${date>=t?"disabled":""}>›</button></div></div>
-    <div class="gauges">
-      ${gauge(sc&&sc.perf,"Sleep",slTxt,sc&&sc.sleep?fmtMin(sc.sleep.asleep)+" of "+fmtMin(sc.need):"no sleep data","var(--fat)")}
-      ${gauge(sc&&sc.rec,"Recovery",recTxt,recSub,bandColor(sc&&sc.band))}
-      ${gauge(sc&&sc.strain!=null?sc.strain*5:null,"Strain",stTxt,sc?`aim ${sc.target[0]}-${sc.target[1]} today`:"no heart data","var(--accent)")}
-    </div>
+    ${bodyGauges(sc)}
     ${sc&&sc.why.length?`<div class="small muted">${sc.rec!=null?"Recovery from ":""}${esc(sc.why.join(" · "))}.</div>`:""}
     ${v?`<div class="readouts">
       <div class="ro"><div class="k">Resting HR</div><div class="v num">${v.rhr??"—"}</div><div class="u">${v.rhr?`bpm${sc.bR?` · usual ${Math.round(sc.bR)}`:""}`:"not sent"}</div></div>
@@ -2243,12 +2283,23 @@ function renderBody(){
   const sy=$("#vSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Reading…"; try{ const n=await vitSync(true); toast(n?`Watch data updated for ${n} day${n>1?"s":""}`:"Watch data is up to date"); }catch(e){ toast("Couldn't read watch data: "+e); } render(); };
   const hc=$("#vHc",el); if(hc) hc.onclick=()=>{ const H=hcPlugin(); if(H&&H.openHealthConnectSettings) H.openHealthConnectSettings().catch(()=>{}); };
 }
+function bodyGauges(sc){
+  const recTxt=sc&&sc.rec!=null?sc.rec+"%":sc&&sc.calibrating?"…":"—";
+  const recSub=sc&&sc.rec!=null?(sc.band==="good"?"Ready to push":sc.band==="warn"?"Steady day":"Take it easy"):sc&&sc.calibrating?"Learning your baseline (3 nights)":"No data";
+  return `<div class="gauges">
+      ${gauge(sc&&sc.perf,"Sleep",sc&&sc.perf!=null?sc.perf+"%":"—",sc&&sc.sleep?fmtMin(sc.sleep.asleep)+" of "+fmtMin(sc.need):"no sleep data","var(--fat)")}
+      ${gauge(sc&&sc.rec,"Recovery",recTxt,recSub,bandColor(sc&&sc.band))}
+      ${gauge(sc&&sc.strain!=null?sc.strain*5:null,"Strain",sc&&sc.strain!=null?String(sc.strain):"—",sc?`aim ${sc.target[0]}-${sc.target[1]} today`:"no heart data","var(--accent)")}
+    </div>`;
+}
+// Status tab: the three watch scores from the top of the Body tab
 function bodyMini(){
   const t=today(); const sc=scores(t)||scores(addDays(t,-1)); if(!sc) return "";
-  return `<button class="panel bodymini" id="toBody"><span class="eyebrow">Watch · ${sc.v.date===t?"today":"yesterday"}</span><span class="row" style="gap:14px">
-    <span><b class="num" style="color:${bandColor(sc.band)}">${sc.rec!=null?sc.rec+"%":"—"}</b> <span class="small muted">recovery</span></span>
-    <span><b class="num">${sc.sleep?fmtMin(sc.sleep.asleep):"—"}</b> <span class="small muted">sleep</span></span>
-    <span><b class="num">${sc.strain??"—"}</b> <span class="small muted">strain</span></span></span><span class="small muted">Tap for details and your AI coach</span></button>`;
+  return `<div class="hud">
+    <div class="spread"><div><div class="eyebrow">Watch · ${sc.v.date===t?"today":"yesterday"}</div><h2>Recovery & effort</h2></div><button class="ghost" id="toBody">Details ›</button></div>
+    ${bodyGauges(sc)}
+    ${sc.why.length?`<div class="small muted">${sc.rec!=null?"Recovery from ":""}${esc(sc.why.join(" · "))}.</div>`:""}
+  </div>`;
 }
 
 /* ---------- Cloud account (Android app): sign in, back up and sync through Supabase ---------- */

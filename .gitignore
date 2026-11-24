@@ -1,4 +1,5 @@
 node_modules/
+android/app/libs/*.aar
 web/native.js
 web/version.json
 *.keystore

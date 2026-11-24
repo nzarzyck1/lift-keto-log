@@ -62,6 +62,12 @@ jobs:
       - uses: actions/setup-java@v4
         if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
         with: { distribution: temurin, java-version: 21 }
+      - name: Unlock the Samsung Health SDK
+        if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
+        env: { SDK_KEY: "${{ secrets.KEYSTORE_PASSWORD }}" }
+        run: |
+          mkdir -p android/app/libs
+          openssl enc -d -aes-256-cbc -pbkdf2 -in android/samsung/samsung-health-data-api-1.1.0.aar.enc -out android/app/libs/samsung-health-data-api-1.1.0.aar -pass env:SDK_KEY
       - name: Build the APK
         if: steps.ver.outputs.new == 'true' || github.event_name == 'workflow_dispatch'
         env:
@@ -104,6 +110,11 @@ jobs:
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
+      - name: Unlock the Samsung Health SDK
+        env: { SDK_KEY: "${{ secrets.KEYSTORE_PASSWORD }}" }
+        run: |
+          mkdir -p android/app/libs
+          openssl enc -d -aes-256-cbc -pbkdf2 -in android/samsung/samsung-health-data-api-1.1.0.aar.enc -out android/app/libs/samsung-health-data-api-1.1.0.aar -pass env:SDK_KEY
       - name: Build a test APK
         run: |
           npm ci
