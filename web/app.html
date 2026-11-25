@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="30">
+<meta name="app-version" content="32">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -143,6 +143,8 @@ details.sess .body{padding-top:8px;display:flex;flex-direction:column;gap:6px;fo
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .stat .v{font-family:var(--display);font-size:26px;font-weight:700;line-height:1.1}
 .stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bodycomp{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.bodycomp .stat .k{font-size:10.5px}
 .empty{padding:18px;border:1px dashed var(--line);border-radius:6px;color:var(--muted);text-align:center}
 .banner{font-size:14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft)}
 
@@ -1456,6 +1458,7 @@ build(); view = todayDay(); renderPlans(); renderTimes(); renderMoments(); rende
 <input type="file" id="camHave" accept="image/*" capture="environment" hidden>
 <input type="file" id="pickHave" accept="image/*" multiple hidden>
 <input type="file" id="camSteps" accept="image/*" hidden>
+<input type="file" id="camBody" accept="image/*" hidden>
 
 <script>
 (function(){
@@ -1774,7 +1777,7 @@ let lastSyncErr=null;
 // Use that number, so the app matches Samsung Health. Fall back to every app's
 // total only if Samsung Health hasn't written anything.
 const SHEALTH="com.sec.android.app.shealth";
-const APPNAMES={"com.sec.android.app.shealth":"Samsung Health","com.fitbit.FitbitMobile":"Google Health (Fitbit)","com.google.android.apps.fitness":"Google Fit","com.google.android.apps.healthdata":"Health Connect","com.nathan.liftketo":"This app"};
+const APPNAMES={"com.sec.android.app.shealth":"Samsung Health","com.fitbit.FitbitMobile":"Google Health (Fitbit)","com.google.android.apps.fitness":"Google Fit","com.google.android.apps.healthdata":"Health Connect","com.nathan.liftketo":"This app","cn.fitdays.fitdays":"FitDays"};
 const appName=p=>APPNAMES[p]||(p?String(p).split(".").slice(-1)[0]:"Other");
 // Pick one device's number per day, never adding two together: Samsung Health first, else the app with the most
 function perDayBest(recs,val){
@@ -1940,7 +1943,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) setTimeo
 // tab is drawn, so the computer shows the same thing and the formulas can improve without a reinstall.
 const vitPlugin=()=>window.Capacitor&&Capacitor.isPluginAvailable&&Capacitor.isPluginAvailable("Vitals")?Capacitor.Plugins.Vitals:null;
 let vitBusy=null, vitInfo=lsGet("lk-vit-info",null);
-const VIT_LABEL={hr:"Heart rate",rhr:"Resting heart rate",hrv:"HRV",sleep:"Sleep",exercise:"Workouts",active:"Active calories",total:"Total calories",spo2:"Blood oxygen",resp:"Breathing rate",weight:"Weight",fat:"Body fat"};
+const VIT_LABEL={hr:"Heart rate",rhr:"Resting heart rate",hrv:"HRV",sleep:"Sleep",exercise:"Workouts",active:"Active calories",total:"Total calories",spo2:"Blood oxygen",resp:"Breathing rate",weight:"Weight",fat:"Body fat",bmr:"BMR",bone:"Bone mass",bwater:"Body water",lean:"Fat-free mass"};
+const SCALE_KEYS=["weight","fat","bmr","bone","bwater","lean"];
 const EXTYPE={0:"Workout",4:"Baseball",5:"Basketball",8:"Bike ride",9:"Stationary bike",10:"Boot camp",11:"Boxing",13:"Calisthenics",16:"Dancing",25:"Elliptical",26:"Exercise class",32:"Golf",36:"HIIT",37:"Hike",44:"Martial arts",48:"Pilates",53:"Rowing",54:"Rowing machine",56:"Run",57:"Treadmill run",64:"Soccer",68:"Stair climbing",69:"Stair machine",70:"Strength training",71:"Stretching",74:"Pool swim",73:"Open water swim",76:"Tennis",79:"Walk",81:"Weightlifting",83:"Yoga"};
 function vitals(){ return Object.values(view()).filter(v=>v&&v.kind==="vitals"&&v.date).sort((a,b)=>a.date.localeCompare(b.date)); }
 function vitOn(date){ const v=view()["w-"+date]; return v&&v.kind==="vitals"?v:null; }
@@ -2008,7 +2012,17 @@ function vitDigest(raw,dates){
     });
     const act=pick((raw.active||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
     const tot=pick((raw.total||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
-    const wt=pick((raw.weight||[]).filter(x=>x[0]>=s0&&x[0]<s1)).pop(); const bf=(raw.fat||[]).filter(x=>x[0]>=s0&&x[0]<s1).pop();
+    const wt=pick((raw.weight||[]).filter(x=>x[0]>=s0&&x[0]<s1)).pop();
+    // a smart scale's other readings: take them from the same app as the weigh-in when it has them
+    const scale=k=>{ const a=(raw[k]||[]).filter(x=>x[0]>=s0&&x[0]<s1); if(!a.length) return null;
+      const same=wt&&a.filter(x=>x.length>2&&x[x.length-1]===wt[2]); return (same&&same.length?same:pick(a)).slice().sort((x,y)=>x[0]-y[0]).pop(); };
+    // BMR only alongside a weigh-in from the same app (Samsung Health also writes a daily profile estimate)
+    const bmSame=wt&&(raw.bmr||[]).filter(x=>x[0]>=s0&&x[0]<s1&&x.length>2&&x[x.length-1]===wt[2]);
+    const bf=scale("fat"), bm=bmSame&&bmSame.length?bmSame[bmSame.length-1]:null, bo=scale("bone"), bw=scale("bwater"), le=scale("lean");
+    const lbs=kg=>r1(kg*2.20462), wLb=wt?wt[1]*2.20462:null;
+    const body={}; if(bf) body.fat=r1(bf[1]); if(bm) body.bmr=Math.round(bm[1]); if(bo) body.bone=lbs(bo[1]); if(le) body.lean=lbs(le[1]);
+    if(bw&&wLb) body.water=r1(bw[1]*2.20462/wLb*100);
+    if(Object.keys(body).length){ const o=[wt,bf,bm,bo,bw,le].find(x=>x&&x.length>2); body.src=o?appName(o[o.length-1]):"Health Connect"; }
     const hrs=dayHr.map(x=>x[1]);
     const doc={kind:"vitals",date,rhr,rhrSrc,hrv,sleep,
       spo2:ox2.length?r1(avg(ox2.map(x=>x[1]))):null, spo2Min:ox2.length?r1(Math.min(...ox2.map(x=>x[1]))):null,
@@ -2017,8 +2031,8 @@ function vitDigest(raw,dates){
       hrAvg:hrs.length?Math.round(avg(hrs)):null, hrMax:hrs.length?Math.max(...hrs):null,
       hr96:hr96.map((v,i)=>c96[i]?Math.round(v/c96[i]):0), workouts,
       active:act?Math.round(act):null, total:tot?Math.round(tot):null,
-      weight:wt?r1(wt[1]*2.20462):null, fat:bf?r1(bf[1]):null};
-    if(sleep||hrs.length||workouts.length||rhr||hrv||doc.weight) out[date]=doc;
+      weight:wt?r1(wt[1]*2.20462):null, weightSrc:wt&&wt[2]?appName(wt[2]):null, fat:bf?r1(bf[1]):null, body:Object.keys(body).length?body:null};
+    if(sleep||hrs.length||workouts.length||rhr||hrv||doc.weight||doc.body) out[date]=doc;
   }
   return out;
 }
@@ -2038,13 +2052,16 @@ function vitSync(manual){
       const start=new Date((dSec(chunk[0])-30*3600)*1000), end=new Date(Math.min(Date.now(),dSec(addDays(chunk[chunk.length-1],1))*1000));
       const raw=await V.read({startDate:start.toISOString(),endDate:end.toISOString()});
       Object.assign(errs,(raw&&raw.errors)||{});
-      for(const k of ["sleep","exercise","rhr","hrv","active","total","weight"]) for(const x of (raw&&raw[k])||[]){ const p=Array.isArray(x)?x[x.length-1]:x.src; if(typeof p==="string") apps[appName(p)]=1; }
+      for(const k of ["sleep","exercise","rhr","hrv","active","total","weight","fat"]) for(const x of (raw&&raw[k])||[]){ const p=Array.isArray(x)?x[x.length-1]:x.src; if(typeof p==="string") apps[appName(p)]=1; }
       for(const k of Object.keys(VIT_LABEL)) if(raw&&raw[k]&&raw[k].length) found[k]=(found[k]||0)+raw[k].length;
       const got=vitDigest(raw||{},chunk);
       for(const [date,doc] of Object.entries(got)){
         if(!vitSame(vitOn(date),doc)){ put("w-"+date,{...doc,ts:Date.now()}); n++; }
-        // a weigh-in from a Samsung Health scale fills the day's weight when you didn't type one
-        const dd=day(date); if(doc.weight&&dd.weight==null) put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],weight:doc.weight,weightSrc:"Samsung Health"});
+        // a smart scale's weigh-in (FitDays via Google Fit, or Samsung Health) fills the day's weight when you didn't type one,
+        // and its body readings sit beside anything you read from a FitDays screenshot (those win where both exist)
+        let dd=day(date);
+        if(doc.weight&&dd.weight==null){ dd={...dd,kind:"day",date,foods:dd.foods||[],weight:doc.weight,weightSrc:doc.weightSrc||"Health Connect"}; put("d-"+date,dd); }
+        if(doc.body&&JSON.stringify(dd.bodyHC||null)!==JSON.stringify(doc.body)) put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],bodyHC:doc.body});
       }
     }
     vitInfo={at:Date.now(),full:full?Date.now():(vitInfo&&vitInfo.full)||0,errs,found,apps:Object.keys(apps),err:""}; lsSet("lk-vit-info",vitInfo);
@@ -2138,7 +2155,7 @@ function bodyConnectHtml(){
 }
 function vitStatusHtml(){
   if(!vitPlugin()||!lsGet("lk-vit-on",false)) return "";
-  const i=vitInfo||{}; const miss=Object.keys(VIT_LABEL).filter(k=>i.found&&!i.found[k]);
+  const i=vitInfo||{}; const miss=Object.keys(VIT_LABEL).filter(k=>i.found&&!i.found[k]&&!SCALE_KEYS.includes(k));
   const notAllowed=Object.entries(i.errs||{}).filter(([k,e])=>e==="not allowed").map(([k])=>VIT_LABEL[k]);
   return `<div class="panel"><div class="eyebrow">Watch connection</div>
     <div class="small">${i.at?`Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:"Not read yet."} It reads again on its own each time you open the app.${(i.apps||[]).length?` Data is coming from: <b>${esc(i.apps.join(", "))}</b>. When two devices record the same thing, Samsung Health is used and the other fills days it missed.`:""}</div>
@@ -2171,7 +2188,7 @@ function coachData(){
     const tt=totals(dd);
     rows.push({date:d+(d===t?" (today, still going)":""),
       food:(dd.foods||[]).length?{kcal:Math.round(tt.kcal),protein:Math.round(tt.p),netCarbs:r1(tt.c),fat:Math.round(tt.f),items:(dd.foods||[]).length,lateMeals:(dd.foods||[]).filter(f=>f.ts&&new Date(f.ts).getHours()>=20).length}:"not logged",
-      steps:+dd.steps||null, waterOz:+dd.water||null, weightLb:dd.weight||null, ketones:k?k.level:null,
+      steps:+dd.steps||null, waterOz:+dd.water||null, weightLb:dd.weight||null, scale:bodyComp(d)?bodyCoachRow(bodyComp(d)):null, ketones:k?k.level:null,
       appBurnEstimate:r?Math.round(r.burn):null, balance:r&&r.bal!=null?Math.round(r.bal):null,
       lifts:sessions().filter(x=>x.date===d).map(x=>(WMAP[x.workout]?WMAP[x.workout].name:"Lift")+(x.cardio?` + ${x.cardio.type} ${x.cardio.minutes}m`:"")),
       otherActivity:activities().filter(a=>a.date===d).map(fmtAct),
@@ -2190,7 +2207,7 @@ async function runCoach(){
 Here is the last 14 days from his app as JSON. "watch" is from the Galaxy Watch: recovery 0-100 (from HRV, resting heart rate and sleep vs his own baseline), strain 0-20 (heart-rate load), sleep details. "balance" is the app's calories eaten minus estimated burn (negative = deficit). Days marked "not logged" have no food logged, which is itself worth calling out if common.
 ${JSON.stringify(data)}
 
-Look for real patterns across food, sleep, recovery, training and weight. Things that matter on tirzepatide + keto: eating too little protein (muscle loss), eating too little overall (big deficits can stall and cost muscle), dehydration and low electrolytes, poor or short sleep raising hunger and resting heart rate, late meals hurting sleep, training hard on low-recovery days, low daily steps, carb creep, inconsistent logging. Tie claims to specific numbers and dates from the data. If the data is thin, say what to start tracking.
+Look for real patterns across food, sleep, recovery, training and weight. Where smart scale readings exist (body fat %, muscle, visceral fat), judge whether the loss is fat or muscle; single scale readings swing with hydration, so use trends over several days. Things that matter on tirzepatide + keto: eating too little protein (muscle loss), eating too little overall (big deficits can stall and cost muscle), dehydration and low electrolytes, poor or short sleep raising hunger and resting heart rate, late meals hurting sleep, training hard on low-recovery days, low daily steps, carb creep, inconsistent logging. Tie claims to specific numbers and dates from the data. If the data is thin, say what to start tracking.
 
 Answer with JSON only, in plain friendly English, no medical jargon, no em dashes:
 {"headline":"one sentence on the big picture",
@@ -2228,7 +2245,7 @@ function renderBody(){
       <div class="ro"><div class="k">Avg HR</div><div class="v num">${v.hrAvg??"—"}</div><div class="u">${v.hrMax?"max "+v.hrMax:"bpm"}</div></div>
       <div class="ro"><div class="k">Active burn</div><div class="v num">${v.active?fmtK(v.active):"—"}</div><div class="u">${v.active?"kcal (watch)":"not sent"}</div></div>
       <div class="ro"><div class="k">Steps</div><div class="v num">${day(date).steps?fmtK(day(date).steps):"—"}</div><div class="u">from steps sync</div></div>
-      <div class="ro"><div class="k">Weight</div><div class="v num">${day(date).weight??"—"}</div><div class="u">${day(date).weightSrc?"from Samsung":"lb"}</div></div>
+      <div class="ro"><div class="k">Weight</div><div class="v num">${day(date).weight??"—"}</div><div class="u">${day(date).weightSrc?"lb · "+esc(day(date).weightSrc):"lb"}</div></div>
     </div>`:""}
   </div>
 
@@ -2779,8 +2796,9 @@ function renderFood(){
       <span class="row" style="gap:6px"><button data-wat="-16" aria-label="Remove 16 oz">−16</button><button data-wat="16">+16 oz</button><button data-wat="24">+24</button></span></div>
     <div class="grid2">
       <label class="f">Morning weight (lb)<input id="bw" inputmode="decimal" value="${d.weight??""}" placeholder="${esc(lastWeight()??s.startWeight)}"></label>
-      <div class="small muted" style="align-self:end">Weigh after waking, before eating. Judge the weekly average, not single days.</div>
+      <div class="small muted" style="align-self:end">Weigh after waking, before eating. Judge the weekly average, not single days.${d.weightSrc?` Weight came from ${esc(d.weightSrc)}.`:""}</div>
     </div>
+    ${bodyCompHtml(foodDate)}
     ${stepsEntry(foodDate)}
   </div>
   ${haveHtml()}
@@ -2796,6 +2814,7 @@ function renderFood(){
   el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ const dd=day(foodDate); const foods=[...dd.foods]; const [gone]=foods.splice(+b.dataset.del,1); put("d-"+foodDate,{...dd,foods}); toast("Removed "+gone.n); });
   el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(foodDate,+b.dataset.edit));
   el.querySelectorAll("[data-wat]").forEach(b=>b.onclick=()=>addWater(foodDate,+b.dataset.wat));
+  bindBodyComp(el,foodDate);
   $("#bw",el).addEventListener("change",e=>{ const dd=day(foodDate); const w=numv(e.target.value); put("d-"+foodDate,{...dd,kind:"day",date:foodDate,weight:w}); if(w) toast("Weight saved"); });
   el.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{ const a=b.dataset.fa; if(a==="photo"){ $("#camPhoto").click(); return; } fx.panel=fx.panel===a?null:a; render(); if(fx.panel==="describe") setTimeout(()=>$("#fdesc")?.focus(),0); });
   const ta=$("#fdesc",el); if(ta){ ta.oninput=()=>{fx.desc=ta.value}; $("#fdescGo",el).onclick=onDescribe; }
@@ -2863,6 +2882,7 @@ function drawSheet(){
     root.querySelectorAll("[data-ss]").forEach(i=>i.oninput=()=>{s.days[+i.dataset.ss].steps=Math.round(numv(String(i.value).replace(/[,\s]/g,""))||0)});
     return;
   }
+  if(s.kind==="body"){ drawBodySheet(root,s); return; }
   if(s.kind==="ketone"){
     const body=s.status==="loading"?`<div class="panel row"><span class="spin"></span><span class="muted">${esc(s.loadingText)}</span></div>`
       :s.error?`<div class="panel"><div>${esc(s.error)}</div>${s.retry?`<button class="primary" data-sh="retry">Try again</button>`:""}</div>`
@@ -2908,6 +2928,7 @@ document.addEventListener("click",e=>{
   if(a==="close"||a==="scrim") closeSheet();
   else if(a==="retry") sheet.retry&&sheet.retry();
   else if(a==="ssave"){ const ds=sheet.days.filter(d=>d.date&&d.steps>0); closeSheet(); ds.forEach(d=>saveSteps(d.date,d.steps)); toast(ds.length>1?`Steps saved for ${ds.length} days`:`${fmtK(ds[0]?ds[0].steps:0)} steps saved`); }
+  else if(a==="bsave"){ saveBodySheet(); }
   else if(a==="klev"){ sheet.level=b.dataset.l; drawSheet(); }
   else if(a==="ksave"){ const l=sheet.level; closeSheet(); saveKetone(l,"photo"); }
   else if(a==="label") $("#camLabel").click();
@@ -3352,6 +3373,110 @@ function ruleTips(m,w){
   const waterToday=day(today()).water||0; if(waterToday<s.water/2) tips.push(`Water is at ${waterToday} oz. Aim for ${s.water} oz with electrolytes; it keeps strips readable and energy up.`);
   return tips;
 }
+/* ---------- Smart scale body composition (FitDays) ----------
+   Two sources per day doc: bodyHC = what Health Connect carries (weight, body fat, BMR, bone, body water, lean mass),
+   body = what you read from a FitDays screenshot or typed (every number FitDays shows). Typed/screenshot wins. */
+const BODY_FIELDS=[
+  {k:"fat",l:"Body fat",u:"%",good:-1},
+  {k:"bmi",l:"BMI",u:"",good:-1},
+  {k:"fatMass",l:"Fat mass",u:"lb",good:-1},
+  {k:"muscle",l:"Muscle mass",u:"lb",good:1},
+  {k:"skm",l:"Skeletal muscle",u:"%",good:1},
+  {k:"lean",l:"Fat-free mass",u:"lb",good:1},
+  {k:"water",l:"Body water",u:"%",good:1},
+  {k:"visceral",l:"Visceral fat",u:"",good:-1},
+  {k:"subq",l:"Subcutaneous fat",u:"%",good:-1},
+  {k:"protein",l:"Protein",u:"%",good:1},
+  {k:"bone",l:"Bone mass",u:"lb",good:0},
+  {k:"bmr",l:"BMR",u:"kcal",good:0},
+  {k:"bodyAge",l:"Body age",u:"yrs",good:-1},
+];
+const BODY_HC_KEYS=["fat","bmr","bone","water","lean"];
+// Everything known for a day, with BMI and fat mass worked out from weight when the scale didn't give them
+function bodyComp(date){
+  const d=day(date), hc=d.bodyHC||{}, mine=d.body||{}, out={}, from={};
+  for(const f of BODY_FIELDS){ if(mine[f.k]!=null){ out[f.k]=mine[f.k]; from[f.k]="mine"; } else if(hc[f.k]!=null){ out[f.k]=hc[f.k]; from[f.k]="hc"; } }
+  const w=+d.weight||null;
+  if(out.bmi==null&&w&&(out.fat!=null||mine.src||hc.src)){ const h=bodyInfo().h; out.bmi=r1(703*w/(h*h)); from.bmi="calc"; }
+  if(out.fatMass==null&&w&&out.fat!=null){ out.fatMass=r1(w*out.fat/100); from.fatMass="calc"; }
+  if(out.lean==null&&w&&out.fat!=null){ out.lean=r1(w-w*out.fat/100); from.lean="calc"; }
+  const real=BODY_FIELDS.some(f=>from[f.k]==="mine"||from[f.k]==="hc");
+  return real?{v:out,from,src:mine.src||"",hcSrc:hc.src||"",weight:w}:null;
+}
+// The closest earlier day that has the same reading, for the change arrows
+function bodyPrev(date,k){ for(const d of allDays()) if(d.date<date){ const b=bodyComp(d.date); if(b&&b.v[k]!=null&&b.from[k]!=="calc") return {date:d.date,v:b.v[k]}; } return null; }
+function bodyCoachRow(b){ const o={}; for(const f of BODY_FIELDS) if(b.v[f.k]!=null) o[f.k+(f.u?"_"+f.u.replace("%","pct"):"")]=b.v[f.k]; return o; }
+function bodyCompHtml(date){
+  const b=bodyComp(date); const oldShell=window.NATIVE&&+window.NATIVE.shell<7;
+  const shotBtn=`<button class="bodyShot" data-date="${date}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>Read FitDays screenshot</button>`;
+  const editBtn=`<button class="bodyEdit" data-date="${date}">${b?"Edit":"Type it in"}</button>`;
+  if(!b) return `<div class="bodycomp"><div class="eyebrow">Body composition</div>
+    <div class="small muted">Snap a screenshot of your FitDays results after you weigh in and Claude fills in body fat, muscle, water, visceral fat, BMR, body age and the rest.${WEB?"":oldShell?" Get the newest install from the install page and the app also pulls body fat, BMR, bone and water from Health Connect on its own.":" Body fat, BMR, bone and water also come in on their own from Health Connect when your scale shares them."}</div>
+    <div class="row" style="gap:8px">${shotBtn}${editBtn}</div></div>`;
+  const cells=BODY_FIELDS.filter(f=>b.v[f.k]!=null).map(f=>{
+    const v=b.v[f.k], p=b.from[f.k]==="calc"?null:bodyPrev(date,f.k);
+    let ch=""; if(p){ const dlt=r1(v-p.v); if(dlt){ const better=f.good===0?null:(dlt*f.good>0); ch=`<div class="small num" style="color:${better==null?"var(--muted)":better?"var(--good)":"var(--bad)"}" title="Since ${esc(fmtShort(p.date))}">${dlt>0?"+":"−"}${Math.abs(dlt)}${f.u&&f.u!=="kcal"&&f.u!=="yrs"?" "+f.u:""}</div>`; } }
+    return `<div class="stat"><div class="v num" style="font-size:18px">${f.k==="bmr"?fmtK(v):v}<span class="small muted">${f.u&&f.u!=="kcal"?" "+f.u:""}</span></div><div class="k">${f.l}${f.u==="kcal"?" (kcal)":""}</div>${ch}</div>`; }).join("");
+  const missing=BODY_FIELDS.filter(f=>b.v[f.k]==null).map(f=>f.l.toLowerCase());
+  const srcTxt=[b.src?`From your ${esc(b.src)}`:"", b.hcSrc&&BODY_HC_KEYS.some(k=>b.from[k]==="hc")?`${b.src?"plus ":"From "}${esc(b.hcSrc)} via Health Connect`:""].filter(Boolean).join(", ");
+  return `<div class="bodycomp"><div class="spread"><span class="eyebrow">Body composition</span><span class="small muted">${srcTxt}</span></div>
+    <div class="stats">${cells}</div>
+    <div class="small muted">Arrows compare with your last reading (green is the right direction for losing fat and keeping muscle). Body fat and water swing with hydration, so watch the trend over a few weigh-ins.${!b.src&&missing.length?" Health Connect doesn't carry muscle, visceral fat, protein or body age, so read a FitDays screenshot to add those.":""}</div>
+    <div class="row" style="gap:8px">${shotBtn}${editBtn}</div></div>`;
+}
+let bodyShotDate=null;
+function bindBodyComp(el,date){
+  el.querySelectorAll(".bodyShot").forEach(b=>b.onclick=()=>{ bodyShotDate=b.dataset.date; $("#camBody").click(); });
+  el.querySelectorAll(".bodyEdit").forEach(b=>b.onclick=()=>{ const dt=b.dataset.date, d=day(dt), c=bodyComp(dt);
+    const vals={}; for(const f of BODY_FIELDS) if(c&&c.v[f.k]!=null&&c.from[f.k]!=="calc") vals[f.k]=c.v[f.k];
+    openSheet({kind:"body",title:"Body composition",date:dt,weight:d.weight??null,vals,src:(d.body&&d.body.src)||"",manual:true}); });
+}
+async function onBodyShot(file){
+  if(!file) return; const date=bodyShotDate||foodDate||today();
+  openSheet({kind:"body",title:"Body composition",date,status:"loading",loadingText:"Reading your FitDays screenshot…",vals:{},weight:day(date).weight??null});
+  const s=sheet;
+  try{ const img=await shrink(file,1800); s.photoUrl=img.url; s.images=[img.blob]; drawSheet(); }catch(e){ s.status=""; s.error="That image couldn't be opened. Try again."; drawSheet(); return; }
+  const run=async()=>{ s.status="loading"; s.error=""; drawSheet();
+    const prompt=`The image is a screenshot of a smart scale's body composition results (most likely the FitDays app). Today is ${today()} (${fmtDate(today())}).
+Read every number shown. Give all masses in POUNDS: if the screen shows kg, multiply by 2.20462. Percentages stay as percentages. Use null for anything not shown; never guess or estimate a value that isn't on screen.
+Respond with only JSON: {"date": "YYYY-MM-DD" or null (only if a date is shown; "Today" means ${today()}), "weight": number (lb), "fat": number (body fat %), "bmi": number, "fatMass": number (fat mass, lb), "muscle": number (muscle mass, lb), "skm": number (skeletal muscle %), "lean": number (fat-free body weight / lean mass, lb), "water": number (body water %), "visceral": number (visceral fat level or index), "subq": number (subcutaneous fat %), "protein": number (protein %), "bone": number (bone mass, lb), "bmr": number (kcal), "bodyAge": number (years), "app": string (the app's name if visible, else "scale"), "note": string (one short sentence, e.g. which values were missing)}`;
+    try{ const out=await askClaude(prompt,s.images); if(sheet!==s) return;
+      const vals={}; for(const f of BODY_FIELDS){ const x=numv(out[f.k]); if(x!=null&&x>0) vals[f.k]=f.k==="bmr"||f.k==="bodyAge"?Math.round(x):r1(x); }
+      if(!Object.keys(vals).length&&!(+out.weight>0)) throw {code:"empty_completion"};
+      if(/^\d{4}-\d\d-\d\d$/.test(out.date||"")&&out.date<=today()) s.date=out.date;
+      s.vals=vals; if(+out.weight>0) s.weight=r1(+out.weight); s.src=/fitdays/i.test(out.app||"")||!out.app?"FitDays scale":String(out.app).slice(0,40); s.note=out.note||""; s.status=""; }
+    catch(e){ if(sheet!==s) return; s.status=""; s.error=e&&e.code==="empty_completion"?"I couldn't find body composition numbers in that image. Try a screenshot of the FitDays results screen.":aiError(e); }
+    drawSheet(); };
+  s.retry=run; run();
+}
+function drawBodySheet(root,s){
+  const body=s.status==="loading"?`<div class="panel row"><span class="spin"></span><span class="muted">${esc(s.loadingText)}</span></div>`
+    :s.error?`<div class="panel"><div>${esc(s.error)}</div>${s.retry?`<button class="primary" data-sh="retry">Try again</button>`:""}</div>`
+    :`<div class="panel"><div class="grid2"><label class="f">Date<input type="date" data-bd value="${s.date}" max="${today()}"></label><label class="f">Weight (lb)<input data-bw inputmode="decimal" value="${s.weight??""}"></label></div>
+      <div class="grid2">${BODY_FIELDS.map(f=>`<label class="f">${f.l}${f.u?` (${f.u})`:""}<input data-bk="${f.k}" inputmode="decimal" value="${s.vals[f.k]??""}"></label>`).join("")}</div>
+      ${s.note?`<div class="small muted">${esc(s.note)}</div>`:""}<div class="small muted">Check the numbers against the screen and fix any that are off. Leave a box empty if your scale doesn't show it.</div></div>`;
+  root.innerHTML=`<div class="scrim" data-sh="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Body composition"><div class="spread"><h2>Body composition</h2><button class="xbtn" data-sh="close" aria-label="Close">×</button></div>${s.photoUrl?`<img class="photo" src="${s.photoUrl}" alt="Your screenshot" style="object-fit:contain">`:""}${body}${s.status!=="loading"&&!s.error?`<button class="primary big" data-sh="bsave">Save for ${s.date===today()?"today":esc(fmtShort(s.date))}</button>`:""}</div></div>`;
+  const di=root.querySelector("[data-bd]"); if(di) di.onchange=()=>{ s.date=di.value||s.date; drawSheet(); };
+  const wi=root.querySelector("[data-bw]"); if(wi) wi.oninput=()=>{ s.weight=numv(wi.value); };
+  root.querySelectorAll("[data-bk]").forEach(i=>i.oninput=()=>{ const x=numv(i.value); if(x!=null&&x>0) s.vals[i.dataset.bk]=x; else delete s.vals[i.dataset.bk]; });
+}
+function saveBodySheet(){
+  const s=sheet; if(!s) return; const date=s.date||today(); const dd=day(date);
+  const hc=dd.bodyHC||{}; const vals={}; for(const f of BODY_FIELDS) if(s.vals[f.k]!=null&&s.vals[f.k]!==hc[f.k]) vals[f.k]=s.vals[f.k];
+  const has=Object.keys(vals).length;
+  const doc={...dd,kind:"day",date,foods:dd.foods||[],body:has?{...vals,src:s.src||"scale",ts:Date.now()}:null};
+  if(s.weight>0&&s.weight!==dd.weight){ doc.weight=s.weight; delete doc.weightSrc; if(s.src&&!s.manual) doc.weightSrc=s.src; }
+  closeSheet(); put("d-"+date,doc); toast(has?"Body composition saved":"Saved");
+}
+// One line for the Status tab: how fat and muscle have moved since your first scale reading
+function bodyTrendText(){
+  const days=allDays().filter(d=>bodyComp(d.date)).map(d=>({date:d.date,b:bodyComp(d.date)})); if(!days.length) return "";
+  const last=days[0], first=days[days.length-1];
+  const part=(k,l,u)=>{ const a=last.b.v[k]; if(a==null) return ""; const f=days.slice().reverse().find(x=>x.b.v[k]!=null&&x.b.from[k]!=="calc"); const dl=f&&f.date!==last.date?r1(a-f.b.v[k]):0;
+    return `${l} ${a}${u}${dl?` (${dl>0?"+":"−"}${Math.abs(dl)}${u} since ${fmtShort(f.date)})`:""}`; };
+  const bits=[part("fat","body fat","%"),part("fatMass","fat mass"," lb"),part("muscle","muscle"," lb"),part("visceral","visceral fat","")].filter(Boolean);
+  return bits.length?`Scale, ${fmtShort(last.date)}: ${bits.join(" · ")}. `:"";
+}
 function stepsEntry(date){
   const v=day(date).steps;
   return `<div class="stepsrow"><label class="f" style="flex:1">Steps ${date===today()?"today":"on "+fmtShort(date)} (Samsung Health)<input class="stepsIn" data-date="${date}" inputmode="numeric" value="${v??""}" placeholder="e.g. 8,500"></label><button class="stepsShot" data-date="${date}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>Read screenshot</button></div>`;
@@ -3428,7 +3553,7 @@ function renderStatus(){
     </div>
     ${weightChart(m)}
     <div class="legend"><span><i class="sw ln"></i>${hasWeigh?"Trend":"Estimated weight"}</span><span><i class="sw lnp"></i>Projected</span>${hasWeigh?`<span><i class="sw wd"></i>Weigh-in</span>`:""}</div>
-    <div class="small muted">${hasWeigh?"":`No weigh-ins yet, so this starts at ${s.startWeight} lb on ${fmtShort(s.startDate)} and subtracts logged calorie deficits (3,500 kcal ≈ 1 lb). `}Pace is your average daily deficit over the last 7 logged days. ${lost>0?`Down about ${r1(lost)} lb since you started. `:""}Early keto weeks also drop water, so the scale often moves faster than this at first. Add a morning weight on the Food tab to sharpen it.</div>
+    <div class="small muted">${hasWeigh?"":`No weigh-ins yet, so this starts at ${s.startWeight} lb on ${fmtShort(s.startDate)} and subtracts logged calorie deficits (3,500 kcal ≈ 1 lb). `}${esc(bodyTrendText())}Pace is your average daily deficit over the last 7 logged days. ${lost>0?`Down about ${r1(lost)} lb since you started. `:""}Early keto weeks also drop water, so the scale often moves faster than this at first. Add a morning weight on the Food tab to sharpen it.</div>
   </div>
 
   <div class="hud">
@@ -3746,6 +3871,7 @@ Respond with only JSON: {"headline": string (one sentence), "days": [{"day": str
 $("#camKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
 $("#pickKetone").onchange=e=>{ onKetonePhoto(e.target.files[0]); e.target.value=""; };
 $("#camSteps").onchange=e=>{ onStepsShot(e.target.files[0]); e.target.value=""; };
+$("#camBody").onchange=e=>{ onBodyShot(e.target.files[0]); e.target.value=""; };
 
 /* ---------- Bible 365 (embedded reading plan; its state is the synced "bible" doc) ---------- */
 let bibleShown=null; // JSON of the state the open frame was built from
