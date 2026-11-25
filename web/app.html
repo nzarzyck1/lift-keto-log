@@ -2012,7 +2012,11 @@ function vitDigest(raw,dates){
     });
     const act=pick((raw.active||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
     const tot=pick((raw.total||[]).filter(c=>c[0]>=s0&&c[0]<s1)).reduce((t,c)=>t+c[2],0);
-    const wt=pick((raw.weight||[]).filter(x=>x[0]>=s0&&x[0]<s1)).pop();
+    // weigh-ins: prefer the app that also sent body composition that day (the smart scale, e.g. FitDays), else Samsung Health first
+    const wts=(raw.weight||[]).filter(x=>x[0]>=s0&&x[0]<s1);
+    const scaleApps=new Set(["fat","bmr","bone","bwater","lean"].flatMap(k=>(raw[k]||[]).filter(x=>x[0]>=s0&&x[0]<s1&&x.length>2).map(x=>x[x.length-1])));
+    const wtScale=wts.filter(x=>x.length>2&&scaleApps.has(x[2]));
+    const wt=(wtScale.length?wtScale.slice().sort((x,y)=>x[0]-y[0]):pick(wts)).slice(-1)[0];
     // a smart scale's other readings: take them from the same app as the weigh-in when it has them
     const scale=k=>{ const a=(raw[k]||[]).filter(x=>x[0]>=s0&&x[0]<s1); if(!a.length) return null;
       const same=wt&&a.filter(x=>x.length>2&&x[x.length-1]===wt[2]); return (same&&same.length?same:pick(a)).slice().sort((x,y)=>x[0]-y[0]).pop(); };
