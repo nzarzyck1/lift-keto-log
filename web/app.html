@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="32">
+<meta name="app-version" content="33">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -1881,8 +1881,8 @@ function bindWaterPanel(el){
   const sy=$("#wSync",el); if(sy) sy.onclick=async()=>{ sy.disabled=true; sy.textContent="Syncing…"; const n=await waterSync(true); toast(waterInfo&&waterInfo.err?"Couldn't read water: "+waterInfo.err:n?`Water updated for ${n} day${n>1?"s":""}`:"Water is up to date"); render(); };
 }
 function stepSync(manual){
-  const wp=waterSync(manual), vp=vitSync(manual).catch(()=>0);
-  return Promise.all([stepSyncOnly(manual),wp,vp]).then(([a,b,c])=>a+b+c);
+  const wp=waterSync(manual), vp=vitSync(manual).catch(()=>0), sp=lsGet("lk-vit-on",false)?Promise.resolve(0):scaleSync(manual).catch(()=>0);
+  return Promise.all([stepSyncOnly(manual),wp,vp,sp]).then(([a,b,c,d])=>a+b+c+d);
 }
 function stepSyncOnly(manual){
   const H=hcPlugin(); if(!H||!lsGet("lk-hc-on",false)) return Promise.resolve(0);
@@ -2041,6 +2041,74 @@ function vitDigest(raw,dates){
   return out;
 }
 const vitSame=(a,b)=>{ if(!a||!b) return false; const {ts:x,...A}=a, {ts:y,...B}=b; return JSON.stringify(A)===JSON.stringify(B); };
+/* ---------- Smart scale (FitDays) straight from Health Connect, separate from the watch ----------
+   Weigh-ins fill the day's weight (Food tab, Status weight chart, burn and projection) and the scale's
+   body readings (body fat, fat-free mass, bone, water, BMR) fill the day's body composition. A weight you
+   typed yourself is never overwritten; one that came from the scale is replaced by the newer reading. */
+let scaleBusy=null, scaleInfo=lsGet("lk-scale-info",null);
+// Put one day's scale readings where the app uses them; returns true when something changed
+function applyScale(date,doc){
+  if(!doc||(!doc.weight&&!doc.body)) return false;
+  let dd=day(date), ch=false; const nd={...dd,kind:"day",date,foods:dd.foods||[]};
+  if(doc.weight&&(dd.weight==null||(dd.weightSrc&&dd.weight!==doc.weight))){ nd.weight=doc.weight; nd.weightSrc=doc.weightSrc||"Health Connect"; ch=true; }
+  if(doc.body&&JSON.stringify(dd.bodyHC||null)!==JSON.stringify(doc.body)){ nd.bodyHC=doc.body; ch=true; }
+  if(ch) put("d-"+date,nd); return ch;
+}
+function scaleSync(manual){
+  const V=vitPlugin(); if(!V||!lsGet("lk-scale-on",false)) return Promise.resolve(0);
+  if(lsGet("lk-vit-on",false)) return vitSync(manual); // the watch read already brings the scale along
+  if(scaleBusy) return scaleBusy;
+  const last=(scaleInfo&&scaleInfo.at)||0;
+  if(!manual&&Date.now()-last<5*60000) return Promise.resolve(0);
+  const full=manual||!scaleInfo||!scaleInfo.full||Date.now()-scaleInfo.full>12*3600e3;
+  scaleBusy=(async()=>{
+    const t=today(), back=full?29:2; const dates=[]; for(let i=back;i>=0;i--) dates.push(addDays(t,-i));
+    let n=0, errs={}, found={}, lastW=null;
+    for(let i=0;i<dates.length;i+=10){
+      const chunk=dates.slice(i,i+10);
+      const start=new Date(dSec(chunk[0])*1000), end=new Date(Math.min(Date.now(),dSec(addDays(chunk[chunk.length-1],1))*1000));
+      const raw=await V.read({startDate:start.toISOString(),endDate:end.toISOString()});
+      Object.assign(errs,(raw&&raw.errors)||{});
+      const sc={}; for(const k of SCALE_KEYS){ sc[k]=(raw&&raw[k])||[]; if(sc[k].length) found[k]=(found[k]||0)+sc[k].length; }
+      const got=vitDigest(sc,chunk);
+      for(const [date,doc] of Object.entries(got)){ if(doc.weight) lastW={date,w:doc.weight,src:doc.weightSrc}; if(applyScale(date,doc)) n++; }
+    }
+    scaleInfo={at:Date.now(),full:full?Date.now():(scaleInfo&&scaleInfo.full)||0,errs,found,last:lastW||(scaleInfo&&scaleInfo.last)||null,err:""}; lsSet("lk-scale-info",scaleInfo);
+    return n;
+  })().catch(e=>{ scaleInfo={...(scaleInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-scale-info",scaleInfo); if(manual) throw scaleInfo.err; return 0; })
+    .finally(()=>{ scaleBusy=null; });
+  return scaleBusy;
+}
+function scalePanel(){
+  if(!vitPlugin()) return "";
+  const on=lsGet("lk-scale-on",false)||lsGet("lk-vit-on",false), i=(lsGet("lk-vit-on",false)?vitInfo:scaleInfo)||{};
+  const oldInstall=+(window.NATIVE&&window.NATIVE.shell)<7;
+  const lab={weight:"Weight",fat:"Body fat",bmr:"BMR",bone:"Bone mass",bwater:"Body water",lean:"Fat-free mass"};
+  const notAllowed=Object.entries(i.errs||{}).filter(([k,e])=>e==="not allowed"&&lab[k]).map(([k])=>lab[k]);
+  const lw=scaleInfo&&scaleInfo.last;
+  return `<div class="panel"><div class="eyebrow">Smart scale (FitDays)</div>
+    <div class="small">${on?`Connected. Each weigh-in fills your weight log and body composition on its own when the app opens.${i.at?` Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:""}${lw?` Latest weigh-in: <b>${lw.w} lb</b> on ${esc(fmtShort(lw.date))}${lw.src?` from ${esc(lw.src)}`:""}.`:""}`
+      :"Connect once and every FitDays weigh-in that reaches Health Connect fills your weight log (Food tab, Status weight chart and projection) and body composition by itself."}</div>
+    ${oldInstall?`<div class="small" style="color:var(--warn)">Install the newest app file from the install page first, so the app is allowed to read body fat, BMR, bone, water and fat-free mass.</div>`:""}
+    ${i.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(i.err)}</div>`:""}
+    ${on&&notAllowed.length?`<div class="small" style="color:var(--warn)">Not allowed yet: ${esc(notAllowed.join(", "))}. Tap Allow more and switch them on.</div>`:""}
+    <div class="row" style="gap:8px">${on?`<button id="scSync">Sync scale now</button><button id="scAllow">Allow more</button>`:`<button class="primary" id="scConnect">Connect scale</button>`}</div>
+    <div class="small muted">Comes over: weight, body fat, fat-free mass, bone mass, body water and BMR (BMI and fat mass are worked out from them). Health Connect has no place for muscle mass, visceral fat, protein or body age, so FitDays can't share those. A weight you type yourself always wins.</div></div>`;
+}
+function bindScalePanel(el){
+  const V=vitPlugin(); if(!V) return;
+  const ask=async b=>{ b.disabled=true; b.textContent="Opening Health Connect…";
+    try{ const r=await V.requestPermission(); const g=(r&&r.granted)||[];
+      if(g.includes("weight")){ lsSet("lk-scale-on",true); toast("Reading your scale…"); const n=await scaleSync(true); toast(n?`Scale readings added for ${n} day${n>1?"s":""}`:"Connected. No new weigh-ins found"); }
+      else toast(r&&r.available===false?"Health Connect wasn't found on this phone":"Weight wasn't allowed. You can allow it in Health Connect settings"); }
+    catch(e){ toast("Couldn't connect: "+String((e&&e.message)||e)); }
+    render(); };
+  const c=$("#scConnect",el); if(c) c.onclick=()=>ask(c);
+  const a=$("#scAllow",el); if(a) a.onclick=()=>ask(a);
+  const s=$("#scSync",el); if(s) s.onclick=async()=>{ s.disabled=true; s.textContent="Reading…"; try{ const n=await scaleSync(true); toast(n?`Scale readings updated for ${n} day${n>1?"s":""}`:"Scale is up to date"); }catch(e){ toast("Couldn't read the scale: "+e); } render(); };
+}
+// Measured BMR from the scale (latest reading in the 30 days up to this date), else null
+function scaleBmr(date){ for(const d of allDays()) if(d.date<=date){ if(d.date<addDays(date,-30)) break; const b=(d.body&&d.body.bmr)||(d.bodyHC&&d.bodyHC.bmr); if(b) return +b; } return null; }
 function vitSync(manual){
   const V=vitPlugin(); if(!V||!lsGet("lk-vit-on",false)) return Promise.resolve(0);
   if(vitBusy) return vitBusy;
@@ -2063,9 +2131,7 @@ function vitSync(manual){
         if(!vitSame(vitOn(date),doc)){ put("w-"+date,{...doc,ts:Date.now()}); n++; }
         // a smart scale's weigh-in (FitDays via Google Fit, or Samsung Health) fills the day's weight when you didn't type one,
         // and its body readings sit beside anything you read from a FitDays screenshot (those win where both exist)
-        let dd=day(date);
-        if(doc.weight&&dd.weight==null){ dd={...dd,kind:"day",date,foods:dd.foods||[],weight:doc.weight,weightSrc:doc.weightSrc||"Health Connect"}; put("d-"+date,dd); }
-        if(doc.body&&JSON.stringify(dd.bodyHC||null)!==JSON.stringify(doc.body)) put("d-"+date,{...dd,kind:"day",date,foods:dd.foods||[],bodyHC:doc.body});
+        applyScale(date,doc);
       }
     }
     vitInfo={at:Date.now(),full:full?Date.now():(vitInfo&&vitInfo.full)||0,errs,found,apps:Object.keys(apps),err:""}; lsSet("lk-vit-info",vitInfo);
@@ -3162,7 +3228,7 @@ function renderLog(){
 /* ---------- Render: Settings ---------- */
 function renderMore(){
   const el=$("#v-more"); const s=settings();
-  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}${waterPanel()}${stepsPanel()}
+  el.innerHTML=`${cloudPanel()}${window.NATIVE?NATIVE.setupHtml():""}${scalePanel()}${waterPanel()}${stepsPanel()}
   <div class="panel">
     <div class="eyebrow">Daily targets</div>
     <div class="grid2">
@@ -3231,7 +3297,7 @@ function renderMore(){
     }catch(err){ toast("That file isn't a Lift Log backup"); }
   };
   if(window.NATIVE) NATIVE.bindSetup(el);
-  bindWaterPanel(el);
+  bindWaterPanel(el); bindScalePanel(el);
   const ns=$("#n-sync",el); if(ns&&hcPlugin()) ns.onclick=async()=>{ ns.disabled=true; ns.textContent="Reading steps…";
     try{ const n=await stepSync(true); toast(n?`Steps updated for ${n} day${n>1?"s":""}`:"Steps are up to date"); }
     catch(msg){ toast(/quota|rate/i.test(msg)?"Health Connect asked to wait a bit. Try again later.":/permission|security/i.test(msg)?"Steps permission is off. Open Health Connect settings and allow Steps.":"Couldn't read steps: "+msg); }
@@ -3249,7 +3315,8 @@ function bmr(lb){ const b=bodyInfo(); return 10*(lb/2.2046)+6.25*(b.h*2.54)-5*b.
 // MET-based exercise burn: kcal/min = MET * 3.5 * kg / 200
 // Walking burn from watch steps: about 0.5 kcal per kg per km walked; stride ≈ 0.415 × height
 function stepKcal(steps,lb){ const b=bodyInfo(); const km=steps*b.h*2.54*0.415/100000; return 0.5*(lb/2.2046)*km; }
-function baseBurn(date,lb){ const st=+day(date).steps||0; return st? {kcal:bmr(lb)*1.2+stepKcal(st,lb),steps:st} : {kcal:bmr(lb)*1.3,steps:0}; }
+// resting burn: the scale's measured BMR when there's a recent one, else the Mifflin estimate from weight, height and age
+function baseBurn(date,lb){ const st=+day(date).steps||0; const b=scaleBmr(date)||bmr(lb); return st? {kcal:b*1.2+stepKcal(st,lb),steps:st} : {kcal:b*1.3,steps:0}; }
 const isWalk=t=>/walk|treadmill/i.test(t||"");
 function exBurn(date,lb){
   const kg=lb/2.2046, rate=m=>m*3.5*kg/200; let k=0; const items=[];
@@ -3444,7 +3511,7 @@ function bodyCompHtml(date){
   const shotBtn=`<button class="bodyShot" data-date="${date}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg>Read FitDays screenshot</button>`;
   const editBtn=`<button class="bodyEdit" data-date="${date}">${b?"Edit":"Type it in"}</button>`;
   if(!b) return `<div class="bodycomp"><div class="eyebrow">Body composition</div>
-    <div class="small muted">Snap a screenshot of your FitDays results after you weigh in and Claude fills in body fat, muscle, water, visceral fat, BMR, body age and the rest.${WEB?"":oldShell?" Get the newest install from the install page and the app also pulls body fat, BMR, bone and water from Health Connect on its own.":" Body fat, BMR, bone and water also come in on their own from Health Connect when your scale shares them."}</div>
+    <div class="small muted">${WEB?"Weigh-ins from your FitDays scale arrive here from your phone.":lsGet("lk-scale-on",false)||lsGet("lk-vit-on",false)?"Weigh in on your FitDays scale and body fat, fat-free mass, bone, water and BMR show up here on their own.":"Connect your scale under Setup › Smart scale and every FitDays weigh-in shows up here on its own."} Muscle, visceral fat, protein and body age can't travel through Health Connect; if you ever want them, a FitDays screenshot fills them in.</div>
     <div class="row" style="gap:8px">${shotBtn}${editBtn}</div></div>`;
   const cells=BODY_FIELDS.filter(f=>b.v[f.k]!=null).map(f=>{
     const v=b.v[f.k], p=b.from[f.k]==="calc"?null:bodyPrev(date,f.k);
