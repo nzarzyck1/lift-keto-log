@@ -78,13 +78,17 @@
     <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
     <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <!-- Smart scale body composition (FitDays via Google Fit, or Samsung Health) -->
+    <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+    <uses-permission android:name="android.permission.health.READ_BONE_MASS" />
+    <uses-permission android:name="android.permission.health.READ_BODY_WATER_MASS" />
+    <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS" />
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
     <!-- The health plugin declares more than this app uses; drop the ones nothing asks for. -->
     <uses-permission android:name="android.permission.health.READ_DISTANCE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTE" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_HEIGHT" tools:node="remove" />
-    <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS" tools:node="remove" />
     <uses-permission android:name="android.permission.health.READ_NUTRITION" tools:node="remove" />
 
     <queries>

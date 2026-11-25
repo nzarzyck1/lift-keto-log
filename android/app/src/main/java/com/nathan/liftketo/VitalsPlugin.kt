@@ -6,10 +6,14 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
+import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
+import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -37,7 +41,8 @@ import kotlin.reflect.KClass
 /**
  * Reads the Galaxy Watch's body data from Health Connect (Samsung Health writes it there):
  * heart rate, resting heart rate, HRV, sleep with stages, workouts, calories, SpO2,
- * breathing rate, weight and body fat. Scores are worked out in app.html so they can
+ * breathing rate, and a smart scale's weigh-ins: weight, body fat, BMR, bone, body water and
+ * lean mass (Health Connect has no record for muscle, visceral fat, BMI or body age). Scores are worked out in app.html so they can
  * change without a new install; this only hands back compact raw data.
  */
 @CapacitorPlugin(name = "Vitals")
@@ -56,6 +61,10 @@ class VitalsPlugin : Plugin() {
         "resp" to RespiratoryRateRecord::class,
         "weight" to WeightRecord::class,
         "fat" to BodyFatRecord::class,
+        "bmr" to BasalMetabolicRateRecord::class,
+        "bone" to BoneMassRecord::class,
+        "bwater" to BodyWaterMassRecord::class,
+        "lean" to LeanBodyMassRecord::class,
     )
     private val history = "android.permission.health.READ_HEALTH_DATA_HISTORY"
     private val perms: Set<String> = types.values.map { HealthPermission.getReadPermission(it) }.toSet() + history
@@ -161,7 +170,15 @@ class VitalsPlugin : Plugin() {
                                 "weight" -> for (r in readAll(c, WeightRecord::class, range))
                                     arr.put(JSArray().put(sec(r.time)).put(r.weight.inKilograms).put(r.metadata.dataOrigin.packageName))
                                 "fat" -> for (r in readAll(c, BodyFatRecord::class, range))
-                                    arr.put(JSArray().put(sec(r.time)).put(r.percentage.value))
+                                    arr.put(JSArray().put(sec(r.time)).put(r.percentage.value).put(r.metadata.dataOrigin.packageName))
+                                "bmr" -> for (r in readAll(c, BasalMetabolicRateRecord::class, range))
+                                    arr.put(JSArray().put(sec(r.time)).put(r.basalMetabolicRate.inKilocaloriesPerDay).put(r.metadata.dataOrigin.packageName))
+                                "bone" -> for (r in readAll(c, BoneMassRecord::class, range))
+                                    arr.put(JSArray().put(sec(r.time)).put(r.mass.inKilograms).put(r.metadata.dataOrigin.packageName))
+                                "bwater" -> for (r in readAll(c, BodyWaterMassRecord::class, range))
+                                    arr.put(JSArray().put(sec(r.time)).put(r.mass.inKilograms).put(r.metadata.dataOrigin.packageName))
+                                "lean" -> for (r in readAll(c, LeanBodyMassRecord::class, range))
+                                    arr.put(JSArray().put(sec(r.time)).put(r.mass.inKilograms).put(r.metadata.dataOrigin.packageName))
                             }
                             res.put(k, arr)
                         } catch (e: Exception) { errors.put(k, e.message ?: e.javaClass.simpleName) }
