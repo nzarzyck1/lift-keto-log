@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="30">
+<meta name="app-version" content="31">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -3161,6 +3161,17 @@ function renderMore(){
     </div>
     <div class="small muted">The start date sets your week number and phase (on-ramp weeks 1-2, build, deload). After your first logged workout, the app always queues the next one in the rotation.</div>
   </div>
+  ${(()=>{ const t=travelCfg(); return `<div class="panel">
+    <div class="eyebrow">Home and work travel</div>
+    <label class="f">Home address<input id="t-home" value="${esc(t.home)}" placeholder="e.g. 123 Main St, Coralville IA 52241" autocomplete="street-address"></label>
+    <label class="f">Company<input id="t-company" value="${esc(t.company)}" placeholder="who you travel for"></label>
+    <div class="grid2">
+      <label class="f">Meal per diem ($ a day)<input id="t-perDiem" inputmode="decimal" value="${t.perDiem??""}" placeholder="e.g. 59"></label>
+      <label class="f">On travel days<select id="t-travelPct">${[100,75,50].map(n=>`<option value="${n}" ${t.travelPct===n?"selected":""}>${n===100?"Full per diem":n+"% first &amp; last day"}</option>`).join("")}</select></label>
+    </div>
+    <label class="f">Company rules for meals and travel<textarea id="t-policy" rows="3" placeholder="e.g. No alcohol on the per diem. Keep receipts over $25. Breakfast provided at the hotel doesn't count against per diem.">${esc(t.policy)}</textarea></label>
+    <div class="small muted">Claude uses these on every plan: your home address for home days, and your per diem and company rules for picking road meals on hotel days.</div>
+  </div>`; })()}
   <button class="primary" id="ssave">Save settings</button>
   <div class="panel">
     <div class="eyebrow">Backup</div>
@@ -3174,6 +3185,7 @@ function renderMore(){
     const n={...(view().settings||{})};
     ["protein","proteinMin","carbs","fat","water","startWeight","goalWeight","heightIn","age"].forEach(k=>{const v=numv($("#s-"+k,el).value); if(v!=null) n[k]=v;});
     n.startDate=$("#s-startDate",el).value||DEFAULTS.startDate; n.firstWorkout=$("#s-firstWorkout",el).value;
+    n.travel={home:$("#t-home",el).value.trim(), company:$("#t-company",el).value.trim(), perDiem:numv($("#t-perDiem",el).value), travelPct:+$("#t-travelPct",el).value, policy:$("#t-policy",el).value.trim()};
     put("settings",n); toast("Settings saved");
   };
   const save=async(filename,data)=>{
@@ -3244,9 +3256,26 @@ function model(){
 const dash={kView:"day", plan:lsGet("lk-plan",null), planLoading:false, planErr:"", planOpen:false};
 const WHERE=[["home","Home"],["hotel","Hotel"],["fly-out","Flying out to site"],["fly-home","Flying home"],["drive","Driving / road day"]];
 const ROOM=[["fridge","Mini fridge"],["bigfridge","Full-size fridge"],["freezer","Freezer"],["microwave","Microwave"],["stovetop","Stovetop"],["oven","Oven"],["kitchen","Full kitchen (pots, pans, utensils)"],["breakfast","Free hotel breakfast"],["gym","Hotel gym"]];
-function planCfg(){ const c=settings().plan||{}; return {days:c.days||7, where:c.where||{}, room:c.room||["fridge","microwave"], notes:c.notes||"", hotel:c.hotel||"", site:c.site||"", airports:c.airports||"", eatOut:c.eatOut||["lunch","dinner"], avoid:c.avoid||"", drive:c.drive||10, snack:c.snack??"1/4 cup macadamia nuts + a salami and provolone snack pack"}; }
-const PTEXT=[["hotel","Hotel (name and town, or address)","e.g. Hampton Inn, Ames IA"],["site","Job site (address or town)","e.g. 2100 Airport Rd, Ames IA"],["airports","Airports and flight times","e.g. CID 6:10 am → DFW, layover, → AMA"],["avoid","Foods or places to skip","e.g. no seafood, no Subway"]];
-function savePlanCfg(patch){ const cur=view().settings||{}; const c={...planCfg(),...patch};
+const MEALS=[["breakfast","Breakfast"],["lunch","Lunch"],["dinner","Dinner"]];
+function planCfg(){ const c=settings().plan||{}; return {days:c.days||7, where:c.where||{}, room:c.room||["fridge","microwave"], notes:c.notes||"", hotel:c.hotel||"", site:c.site||"", airports:c.airports||"", eatOut:c.eatOut||["lunch","dinner"], homeMeals:c.homeMeals||["breakfast","lunch","dinner"], avoid:c.avoid||"", drive:c.drive||10, snack:c.snack??"1/4 cup macadamia nuts + a salami and provolone snack pack", week:c.week||""}; }
+// Home address, per diem and company rules live in Setup (settings.travel) and apply to every trip.
+function travelCfg(){ const t=settings().travel||{}; return {home:t.home||"", company:t.company||"", perDiem:t.perDiem??null, travelPct:t.travelPct??75, policy:t.policy||""}; }
+const TRIPTEXT=[["hotel","Hotel address (or name and town)","e.g. Hampton Inn, 1400 S Dayton Ave, Ames IA"],["site","Job address","e.g. 2100 Airport Rd, Ames IA"]];
+const FLYTEXT=[["airports","Airports and flight times","e.g. CID 6:10 am → DFW, layover, → AMA"]];
+const PTEXT=[...TRIPTEXT,...FLYTEXT,["avoid","Foods or places to skip","e.g. no seafood, no Subway"]];
+// The week runs Sunday to Saturday. Each Sunday the trip (days, hotel, job address, notes) starts fresh.
+const sundayOf=d=>addDays(d,-parseYmd(d).getDay());
+function weeklyReset(){
+  const st=view().settings; if(!st||!st.plan) return; const sun=sundayOf(today()); const c=planCfg();
+  if(c.week===sun) return;
+  if(!c.week){ put("settings",{...st,plan:{...st.plan,week:sun}}); return; }
+  if(c.week>sun) return;
+  put("settings",{...st,plan:{...st.plan,week:sun,where:{},hotel:"",site:"",airports:"",notes:""}});
+  const p=curPlan(); if(p&&(p.date||"")<sun){ dash.plan=null; lsSet("lk-plan",null); put("plan",null); }
+  dash.planDraft={}; dash.planNotes=null;
+  toast("New week: your trip plan was reset");
+}
+function savePlanCfg(patch){ const cur=view().settings||{}; const c={...planCfg(),...patch,week:sundayOf(today())};
   const keep={}; for(const [d,v] of Object.entries(c.where)) if(d>=today()) keep[d]=v; c.where=keep;
   put("settings",{...cur,plan:c}); }
 function flushPlanNotes(){
@@ -3254,7 +3283,7 @@ function flushPlanNotes(){
   if(dash.planNotes!=null){ d.notes=dash.planNotes; dash.planNotes=null; }
   const c=planCfg(); const patch={}; for(const [k,v] of Object.entries(d)){ const t=String(v).trim(); if(t!==c[k]) patch[k]=t; }
   if(Object.keys(patch).length) savePlanCfg(patch); }
-function planKey(){ const c=planCfg(); return JSON.stringify([c.days,c.room,c.hotel,c.site,c.airports,c.eatOut,c.avoid,c.drive,c.snack,c.notes,planDates().map(d=>whereOn(d))]); }
+function planKey(){ const c=planCfg(); return JSON.stringify([c.days,c.room,c.hotel,c.site,c.airports,c.eatOut,c.homeMeals,c.avoid,c.drive,c.snack,c.notes,travelCfg(),planDates().map(d=>whereOn(d))]); }
 // The plan is a synced doc ("plan"), so it stays put after the day it was made and shows on phone and computer.
 function curPlan(){ const d=view().plan; if(d&&(d.made||0)>((dash.plan&&dash.plan.made)||0)){ dash.plan=d; lsSet("lk-plan",d); } return dash.plan; }
 function planLive(p){ return !!(p&&(p.date===today()||(p.days||[]).some(d=>(d.date||"")>=today()))); }
@@ -3378,6 +3407,7 @@ Respond with only JSON: {"days": [{"date": "YYYY-MM-DD" or null, "steps": number
   s.retry=run; run();
 }
 function renderStatus(){
+  weeklyReset();
   const el=$("#v-status"); const s=settings(); const m=model(); const w=weekSummary(m);
   const tr=m.rows.find(r=>r.date===today())||{t:totals(day(today())),burn:baseBurn(today(),m.cur).kcal+exBurn(today(),m.cur).kcal,ex:exBurn(today(),m.cur),steps:+day(today()).steps||0};
   const tk=ketoneOn(today()); const b=bodyInfo();
@@ -3462,19 +3492,26 @@ function planSetupHtml(){
   const c=planCfg(); const ds=planDates(); const away=ds.some(d=>whereOn(d)!=="home");
   const summary=away?ds.map(d=>whereOn(d)).filter((v,i,a)=>i===0||v!==a[i-1]).map(whereLabel).join(" → "):"Home all week";
   if(!dash.planOpen) return `<button id="psToggle" class="psetup" style="text-align:left;cursor:pointer;font-weight:500"><span class="eyebrow">Where you'll be · ${c.days} days</span><span class="small">${esc(summary)}. Tap to change.</span></button>`;
+  const anyHome=ds.some(d=>whereOn(d)==="home"), fly=ds.some(d=>/^fly/.test(whereOn(d))), t=travelCfg();
+  const text=([k,l,ph])=>`<label class="f">${l}<input data-ptext="${k}" value="${esc((dash.planDraft||{})[k]??c[k])}" placeholder="${esc(ph)}"></label>`;
   return `<div class="psetup">
     <div class="spread"><span class="eyebrow">Where you'll be</span><div class="toggle" role="group" aria-label="Plan length">${[3,5,7].map(n=>`<button data-pdays="${n}" class="${c.days===n?"sel":""}" aria-pressed="${c.days===n}">${n} days</button>`).join("")}</div></div>
     ${ds.map(d=>`<div class="prow"><span class="small">${d===today()?"Today":esc(parseYmd(d).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}))}</span><select data-pwhere="${d}" aria-label="Where">${WHERE.map(([k,l])=>`<option value="${k}" ${whereOn(d)===k?"selected":""}>${l}</option>`).join("")}</select></div>`).join("")}
-    <div class="small muted">A hotel stay carries over to the next days until you change it.</div>
-    <div class="eyebrow">Trip details</div>
-    ${PTEXT.map(([k,l,ph])=>`<label class="f">${l}<input data-ptext="${k}" value="${esc(c[k])}" placeholder="${esc(ph)}"></label>`).join("")}
-    <div class="small muted">With a hotel or job site filled in, Claude looks up real restaurants near them and picks what to order.</div>
-    <div class="eyebrow">Meals to eat out on the road</div>
-    <div class="checks">${[["breakfast","Breakfast"],["lunch","Lunch"],["dinner","Dinner"]].map(([k,l])=>`<label><input type="checkbox" data-peat="${k}" ${c.eatOut.includes(k)?"checked":""}>${l}</label>`).join("")}</div>
+    <div class="small muted">A hotel stay carries over to the next days until you change it. Everything here starts fresh each Sunday.</div>
+    ${anyHome?`<div class="eyebrow">Home days: meals to plan</div>
+    <div class="checks">${MEALS.map(([k,l])=>`<label><input type="checkbox" data-phome="${k}" ${c.homeMeals.includes(k)?"checked":""}>${l}</label>`).join("")}</div>
+    <div class="small muted">${t.home?`Home: ${esc(t.home)}`:"Add your home address in Setup so Claude knows where you are on home days."}</div>`:""}
+    ${away?`<div class="eyebrow">Hotel days</div>
+    ${TRIPTEXT.map(text).join("")}
+    ${fly?FLYTEXT.map(text).join(""):""}
     <label class="f">How far you'll drive for food<select id="pdrive">${[5,10,15,20,30].map(n=>`<option value="${n}" ${c.drive===n?"selected":""}>Up to ${n} minutes</option>`).join("")}</select></label>
     <div class="eyebrow">Hotel room has</div>
     <div class="checks">${ROOM.map(([k,l])=>`<label><input type="checkbox" data-proom="${k}" ${c.room.includes(k)?"checked":""}>${l}</label>`).join("")}</div>
-    <label class="f">Anything else? (stores nearby, long site days, meals provided)<textarea id="pnotes" rows="2" placeholder="e.g. Walmart 5 min away. On site 6 am to 6 pm, lunch on the go.">${esc(c.notes)}</textarea></label>
+    <div class="eyebrow">Meals to eat on the road</div>
+    <div class="checks">${MEALS.map(([k,l])=>`<label><input type="checkbox" data-peat="${k}" ${c.eatOut.includes(k)?"checked":""}>${l}</label>`).join("")}</div>
+    <div class="small muted">${t.perDiem!=null?`Per diem from Setup: $${t.perDiem} a day${t.travelPct<100?` (${t.travelPct}% on travel days)`:""}. Claude keeps road meals inside it.`:"Set your per diem and company rules in Setup and Claude keeps road meals inside them."} With a hotel or job address filled in, Claude looks up real restaurants near them and picks what to order.</div>`:""}
+    ${text(PTEXT[PTEXT.length-1])}
+    <label class="f">Anything else? (stores nearby, long site days, meals provided)<textarea id="pnotes" rows="2" placeholder="e.g. Walmart 5 min away. On site 6 am to 6 pm, lunch on the go.">${esc(dash.planNotes??c.notes)}</textarea></label>
     <button id="psToggle">Done</button>
   </div>`;
 }
@@ -3489,6 +3526,7 @@ function bindPlanSetup(el){
   const n=$("#pnotes",el); if(n) n.oninput=()=>{ dash.planNotes=n.value; };
   el.querySelectorAll("[data-ptext]").forEach(x=>x.oninput=()=>{ (dash.planDraft=dash.planDraft||{})[x.dataset.ptext]=x.value; });
   el.querySelectorAll("[data-peat]").forEach(x=>x.onchange=()=>{ flushPlanNotes(); const r=new Set(planCfg().eatOut); x.checked?r.add(x.dataset.peat):r.delete(x.dataset.peat); savePlanCfg({eatOut:["breakfast","lunch","dinner"].filter(k=>r.has(k))}); });
+  el.querySelectorAll("[data-phome]").forEach(x=>x.onchange=()=>{ flushPlanNotes(); const r=new Set(planCfg().homeMeals); x.checked?r.add(x.dataset.phome):r.delete(x.dataset.phome); savePlanCfg({homeMeals:["breakfast","lunch","dinner"].filter(k=>r.has(k))}); });
   const dr=$("#pdrive",el); if(dr) dr.onchange=()=>{ flushPlanNotes(); savePlanCfg({drive:+dr.value}); };
   el.querySelectorAll("[data-mswap]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.mswap.split(",").map(Number); swapMeal(i,j); });
   el.querySelectorAll("[data-llog]").forEach(b=>b.onclick=()=>{ const [i,k]=b.dataset.llog.split(","); logLunch(+i,k); });
@@ -3523,7 +3561,7 @@ function logLunch(i,k){
 function mealHtml(ml,i,j){
   const busy=dash.swapping===i+","+j;
   const q=[ml.place,ml.address||ml.area].filter(Boolean).join(", ");
-  const mac=[ml.p!=null?Math.round(ml.p)+"P":"",ml.c!=null?r1(+ml.c)+"C":"",ml.f!=null?Math.round(ml.f)+"F":"",ml.kcal?fmtK(ml.kcal)+" kcal":""].filter(Boolean).join(" · ");
+  const mac=[ml.p!=null?Math.round(ml.p)+"P":"",ml.c!=null?r1(+ml.c)+"C":"",ml.f!=null?Math.round(ml.f)+"F":"",ml.kcal?fmtK(ml.kcal)+" kcal":"",ml.cost?"$"+Math.round(ml.cost):""].filter(Boolean).join(" · ");
   return `<div class="meal">
     <div class="mtop"><span class="eyebrow">${esc(ml.meal||"Meal")}${ml.near?` · near ${esc(ml.near)}`:""}</span>${ml.drive?`<span class="small muted">${esc(ml.drive)}</span>`:""}</div>
     <div class="place">${esc(ml.place||"")}</div>
@@ -3680,11 +3718,13 @@ async function askClaudeWeb(prompt,maxSearches){
   }
   throw {code:"error"};
 }
+function workText(){ const t=travelCfg();
+  return [t.company&&`He travels for ${t.company}.`, t.perDiem!=null&&`Company meal per diem: $${t.perDiem} a day${t.travelPct<100?` (${t.travelPct}% = $${Math.round(t.perDiem*t.travelPct)/100} on the first and last day of a trip)`:""}. Keep each day's road meals within it, including tax and tip.`, t.policy&&`Company meal and travel rules (follow them): ${t.policy}`].filter(Boolean).join("\n"); }
 function mealContext(c){
   const room=ROOM.filter(([k])=>c.room.includes(k)).map(([,l])=>l).join(", ")||"nothing";
-  return [c.hotel&&`Hotel: ${c.hotel}`, c.site&&`Job site: ${c.site}`, c.airports&&`Flights/airports: ${c.airports}`, `Hotel room has: ${room}`, c.avoid&&`Skip these foods/places: ${c.avoid}`, `Will drive up to ${c.drive} minutes for food`].filter(Boolean).join("\n");
+  return [c.hotel&&`Hotel: ${c.hotel}`, c.site&&`Job site: ${c.site}`, c.airports&&`Flights/airports: ${c.airports}`, `Hotel room has: ${room}`, c.avoid&&`Skip these foods/places: ${c.avoid}`, `Will drive up to ${c.drive} minutes for food`, workText()].filter(Boolean).join("\n");
 }
-const MEAL_SHAPE=`{"meal": "Breakfast"|"Lunch"|"Dinner", "near": "hotel"|"site"|"airport"|"home", "place": string (real restaurant name, or "Hotel breakfast" / "Hotel room" / "Pack from home"), "address": string (street address or area, for maps), "drive": string (e.g. "6 min from hotel"), "dish": string (the exact menu item), "how": string (how to order it keto, e.g. "no bun, swap fries for side salad, ranch on the side"), "p": number, "c": number (net carbs), "f": number, "kcal": number}`;
+const MEAL_SHAPE=`{"meal": "Breakfast"|"Lunch"|"Dinner", "near": "hotel"|"site"|"airport"|"home", "place": string (real restaurant name, or "Hotel breakfast" / "Hotel room" / "Pack from home"), "address": string (street address or area, for maps), "drive": string (e.g. "6 min from hotel"), "dish": string (the exact menu item), "how": string (how to order it keto, e.g. "no bun, swap fries for side salad, ranch on the side"), "p": number, "c": number (net carbs), "f": number, "kcal": number, "cost": number (estimated US dollars with tax and tip)}`;
 async function swapMeal(i,j){
   const p=dash.plan; const d=p&&p.days&&p.days[i]; const ml=d&&d.meals&&d.meals[j]; if(!ml) return;
   dash.swapping=i+","+j; ml.err=""; render();
@@ -3716,6 +3756,8 @@ async function buildPlan(m,w){
   const dayLines=ds.map(d=>`${parseYmd(d).toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})}${d===today()?" (today)":""}: ${whereLabel(whereOn(d))}`).join("\n");
   const anyHotel=ds.some(d=>whereOn(d)!=="home");
   const awayMeals=anyHotel&&c.eatOut.length>0&&!!(c.hotel||c.site||c.airports);
+  const anyHome=ds.some(d=>whereOn(d)==="home"), t=travelCfg();
+  const homeMeals=c.homeMeals.length?c.homeMeals:["dinner"], homeLunch=homeMeals.includes("lunch");
   const recent=m.rows.filter(r=>r.date>=w.mon).map(r=>`${r.date}: ${r.logged?`${fmtK(r.t.kcal)} kcal, ${Math.round(r.t.p)}P/${r1(r.t.c)}C/${Math.round(r.t.f)}F, burn ~${fmtK(r.burn)}`:"no food logged"}; training: ${r.ex.items.join(", ")||"none"}; ketones: ${r.ket?r.ket.level:"not tested"}`).join("\n");
   const prompt=`${ctxText()}
 His program: 4 lifts a week rotating Lower 1, Upper 1, Lower 2, Upper 2, plus 2-3 cardio sessions (incline walks). Week ${weekNo(today())}, phase: ${phase(weekNo(today())).name}. Next lift in rotation: ${WMAP[nextWorkoutId()].name}.
@@ -3724,8 +3766,11 @@ This week so far (lifts done ${w.lifts}/4, cardio ${w.cardio}):
 ${recent}
 He travels for work (flies out to job sites and stays in hotels). Where he'll be each day of this plan:
 ${dayLines}
+${t.home?`Home address: ${t.home}. On home days, groceries and any meal out are near there.`:""}
+${anyHome?`HOME DAYS: plan only these meals: ${homeMeals.join(", ")}. He handles the others himself, so leave them out of "eat" and the shopping list.${homeLunch?"":` Set "lunch" to null on home days.`}`:""}
+${anyHotel&&workText()?workText():""}
 ${anyHotel?`Hotel room has: ${roomTxt}. Only plan hotel meals he can actually make or store with that (no cooking without a stovetop or oven; nothing needing a freezer unless there is one; keep fridge items to what fits a ${c.room.includes("bigfridge")?"full-size":"mini"} fridge). ${c.room.includes("gym")?"The hotel has a gym, so lifts can use the hotel swaps (dumbbells, cables, machines).":"No hotel gym is listed, so hotel-day training should be bodyweight, a resistance band, or a walk."}`:""}
-LUNCH: he usually eats a good-size dinner after work. On work days he doesn't know ahead of time whether the site will provide food, whether the crew will leave for lunch, or whether he'll only have a packed snack. So for EVERY day give two lunch options in "lunch": (1) "out": a lunch to go get or have (a protein-first plate like steak, salmon, grilled chicken, a bunless burger; on hotel or site days, a real restaurant near the site when you can find one), and (2) "snack": a packed snack he can bring${c.snack?` (his usual: ${c.snack}; use it or a similar packable keto snack)`:""}. Plan breakfast and dinner so either choice still hits his protein. Put what the packed snack needs on the shopping list. Do not also list lunch in "meals".
+LUNCH${anyHome&&!homeLunch?" (hotel and travel days only)":""}: he usually eats a good-size dinner after work. On work days he doesn't know ahead of time whether the site will provide food, whether the crew will leave for lunch, or whether he'll only have a packed snack. So for ${anyHome&&!homeLunch?"every hotel or travel day":"EVERY day"} give two lunch options in "lunch": (1) "out": a lunch to go get or have (a protein-first plate like steak, salmon, grilled chicken, a bunless burger; on hotel or site days, a real restaurant near the site when you can find one), and (2) "snack": a packed snack he can bring${c.snack?` (his usual: ${c.snack}; use it or a similar packable keto snack)`:""}. Plan breakfast and dinner so either choice still hits his protein. Put what the packed snack needs on the shopping list. Do not also list lunch in "meals".
 ${c.notes?`His notes: ${c.notes}`:""}
 ${haveText()?haveText()+"\nBuild meals around what he already has, work his supplements into the days where timing matters, and leave things he already has off the shopping list. Add a keto-friendly item to the list only if he's missing it.":""}
 Write a short, practical plan for each of these ${ds.length} days, in order: which workout (or rest/cardio), and what to eat (specific foods, protein-first, keto). On flying days, plan around airports and the flight: what to pack in a carry-on and keto-friendly picks at typical airport spots, and keep training light or skip it. On hotel days, use foods that need little or no prep and fit the room.
@@ -3735,7 +3780,7 @@ For every Hotel, Flying, or Driving day, plan these meals as specific picks: ${c
 Home days don't need restaurant picks; give a short "eat" line instead.`:""}
 Then write a shopping list that covers these days. Group it by where he should buy it: "Before you leave (from home)" for things to pack, and "Near the hotel" for perishables to buy after arriving, or "Grocery run" if he's home the whole time. Give realistic quantities for the number of days, and leave out kitchen staples he likely has unless he's in a hotel.
 Be encouraging but direct.
-Respond with only JSON: {"headline": string (one sentence), "days": [{"day": string (e.g. "Thu, Nov 13"), "date": "YYYY-MM-DD", "where": string (Home / Hotel / Flying out / Flying home / Driving), "train": string, "eat": string (short; for home days or anything not covered by meals), "lunch": {"out": {"dish": string, "place": string (restaurant name, or "" for a generic suggestion), "how": string (short, how to order it keto), "p": number, "c": number (net carbs), "f": number, "kcal": number}, "snack": {"dish": string, "p": number, "c": number, "f": number, "kcal": number}}, "meals": [${awayMeals?"MEAL":""}], "note": string}], "shopping": [{"where": string, "items": [{"item": string, "qty": string, "why": string (a few words, optional)}]}]}`;
+Respond with only JSON: {"headline": string (one sentence), "days": [{"day": string (e.g. "Thu, Nov 13"), "date": "YYYY-MM-DD", "where": string (Home / Hotel / Flying out / Flying home / Driving), "train": string, "eat": string (short; for home days or anything not covered by meals), "lunch": {"out": {"dish": string, "place": string (restaurant name, or "" for a generic suggestion), "how": string (short, how to order it keto), "p": number, "c": number (net carbs), "f": number, "kcal": number}, "snack": {"dish": string, "p": number, "c": number, "f": number, "kcal": number}}${anyHome&&!homeLunch?" (or null on home days)":""}, "meals": [${awayMeals?"MEAL":""}], "note": string}], "shopping": [{"where": string, "items": [{"item": string, "qty": string, "why": string (a few words, optional)}]}]}`;
   try{ const out=awayMeals?await askClaudeWeb(prompt.replace('"meals": [MEAL]','"meals": [one or more of '+MEAL_SHAPE+']'),20):await askClaude(prompt);
     (out.days||[]).forEach((d,i)=>{ if(!/^\d{4}-\d\d-\d\d$/.test(d.date||"")) d.date=ds[i]||today(); });
     savePlan({...out,date:today(),cfg:planKey(),got:{}}); }
