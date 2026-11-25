@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="app-version" content="33">
+<meta name="app-version" content="34">
 <title>Nathan's Lift & Keto Log</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
@@ -2035,7 +2035,7 @@ function vitDigest(raw,dates){
       hrAvg:hrs.length?Math.round(avg(hrs)):null, hrMax:hrs.length?Math.max(...hrs):null,
       hr96:hr96.map((v,i)=>c96[i]?Math.round(v/c96[i]):0), workouts,
       active:act?Math.round(act):null, total:tot?Math.round(tot):null,
-      weight:wt?r1(wt[1]*2.20462):null, weightSrc:wt&&wt[2]?appName(wt[2]):null, fat:bf?r1(bf[1]):null, body:Object.keys(body).length?body:null};
+      weight:wt?r1(wt[1]*2.20462):null, weightSrc:wt&&wt[2]?appName(wt[2]):null, weightAt:wt?wt[0]:null, fat:bf?r1(bf[1]):null, body:Object.keys(body).length?body:null};
     if(sleep||hrs.length||workouts.length||rhr||hrv||doc.weight||doc.body) out[date]=doc;
   }
   return out;
@@ -2050,7 +2050,10 @@ let scaleBusy=null, scaleInfo=lsGet("lk-scale-info",null);
 function applyScale(date,doc){
   if(!doc||(!doc.weight&&!doc.body)) return false;
   let dd=day(date), ch=false; const nd={...dd,kind:"day",date,foods:dd.foods||[]};
-  if(doc.weight&&(dd.weight==null||(dd.weightSrc&&dd.weight!==doc.weight))){ nd.weight=doc.weight; nd.weightSrc=doc.weightSrc||"Health Connect"; ch=true; }
+  // the scale wins, unless you typed a weight for that day after stepping on it
+  const typedLater=dd.weightTs&&!dd.weightSrc&&doc.weightAt&&dd.weightTs/1000>doc.weightAt;
+  if(doc.weight&&!typedLater&&(dd.weight!==doc.weight||!dd.weightSrc)){ nd.weight=doc.weight; nd.weightSrc=doc.weightSrc||"Health Connect"; delete nd.weightTs; ch=true; }
+  if(doc.weight){ const lw=scaleInfo&&scaleInfo.last; if(!lw||date>=lw.date){ scaleInfo={...(scaleInfo||{}),last:{date,w:doc.weight,src:doc.weightSrc,kept:typedLater?dd.weight:null}}; lsSet("lk-scale-info",scaleInfo); } }
   if(doc.body&&JSON.stringify(dd.bodyHC||null)!==JSON.stringify(doc.body)){ nd.bodyHC=doc.body; ch=true; }
   if(ch) put("d-"+date,nd); return ch;
 }
@@ -2071,9 +2074,9 @@ function scaleSync(manual){
       Object.assign(errs,(raw&&raw.errors)||{});
       const sc={}; for(const k of SCALE_KEYS){ sc[k]=(raw&&raw[k])||[]; if(sc[k].length) found[k]=(found[k]||0)+sc[k].length; }
       const got=vitDigest(sc,chunk);
-      for(const [date,doc] of Object.entries(got)){ if(doc.weight) lastW={date,w:doc.weight,src:doc.weightSrc}; if(applyScale(date,doc)) n++; }
+      for(const [date,doc] of Object.entries(got)){ if(applyScale(date,doc)) n++; }
     }
-    scaleInfo={at:Date.now(),full:full?Date.now():(scaleInfo&&scaleInfo.full)||0,errs,found,last:lastW||(scaleInfo&&scaleInfo.last)||null,err:""}; lsSet("lk-scale-info",scaleInfo);
+    scaleInfo={at:Date.now(),full:full?Date.now():(scaleInfo&&scaleInfo.full)||0,errs,found,last:(scaleInfo&&scaleInfo.last)||null,err:""}; lsSet("lk-scale-info",scaleInfo);
     return n;
   })().catch(e=>{ scaleInfo={...(scaleInfo||{}),at:Date.now(),err:String((e&&(e.message||e.errorMessage||e.code))||e)}; lsSet("lk-scale-info",scaleInfo); if(manual) throw scaleInfo.err; return 0; })
     .finally(()=>{ scaleBusy=null; });
@@ -2087,7 +2090,7 @@ function scalePanel(){
   const notAllowed=Object.entries(i.errs||{}).filter(([k,e])=>e==="not allowed"&&lab[k]).map(([k])=>lab[k]);
   const lw=scaleInfo&&scaleInfo.last;
   return `<div class="panel"><div class="eyebrow">Smart scale (FitDays)</div>
-    <div class="small">${on?`Connected. Each weigh-in fills your weight log and body composition on its own when the app opens.${i.at?` Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:""}${lw?` Latest weigh-in: <b>${lw.w} lb</b> on ${esc(fmtShort(lw.date))}${lw.src?` from ${esc(lw.src)}`:""}.`:""}`
+    <div class="small">${on?`Connected. Each weigh-in fills your weight log and body composition on its own when the app opens.${i.at?` Last read ${new Date(i.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}.`:""}${lw?` Latest weigh-in: <b>${lw.w} lb</b> on ${esc(fmtShort(lw.date))}${lw.src?` from ${esc(lw.src)}`:""}.${lw.kept!=null?` You typed ${lw.kept} lb for that day afterwards, so your typed weight is kept.`:""}`:i.at&&i.found&&!i.found.weight?` The last read found no weigh-ins in Health Connect. Open FitDays once so it sends your latest weigh-in, then tap Sync scale now.`:""}`
       :"Connect once and every FitDays weigh-in that reaches Health Connect fills your weight log (Food tab, Status weight chart and projection) and body composition by itself."}</div>
     ${oldInstall?`<div class="small" style="color:var(--warn)">Install the newest app file from the install page first, so the app is allowed to read body fat, BMR, bone, water and fat-free mass.</div>`:""}
     ${i.err?`<div class="small" style="color:var(--warn)">Last try didn't work: ${esc(i.err)}</div>`:""}
@@ -2885,7 +2888,7 @@ function renderFood(){
   el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(foodDate,+b.dataset.edit));
   el.querySelectorAll("[data-wat]").forEach(b=>b.onclick=()=>addWater(foodDate,+b.dataset.wat));
   bindBodyComp(el,foodDate);
-  $("#bw",el).addEventListener("change",e=>{ const dd=day(foodDate); const w=numv(e.target.value); put("d-"+foodDate,{...dd,kind:"day",date:foodDate,weight:w}); if(w) toast("Weight saved"); });
+  $("#bw",el).addEventListener("change",e=>{ const dd=day(foodDate); const w=numv(e.target.value); const nd={...dd,kind:"day",date:foodDate,weight:w,weightTs:Date.now()}; delete nd.weightSrc; put("d-"+foodDate,nd); if(w) toast("Weight saved"); });
   el.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{ const a=b.dataset.fa; if(a==="photo"){ $("#camPhoto").click(); return; } fx.panel=fx.panel===a?null:a; render(); if(fx.panel==="describe") setTimeout(()=>$("#fdesc")?.focus(),0); });
   const ta=$("#fdesc",el); if(ta){ ta.oninput=()=>{fx.desc=ta.value}; $("#fdescGo",el).onclick=onDescribe; }
   const ps=$("#pastDay",el); if(ps){ ps.onchange=()=>{fx.pastDate=ps.value;fx.pastSel=new Set();render()}; }
